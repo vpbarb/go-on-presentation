@@ -1,12 +1,12 @@
 package main
 
 import (
+	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"time"
-	"net"
-	"log"
 
 	"github.com/Barberrrry/go-on-presentation/examples/dispatcher"
 )

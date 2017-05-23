@@ -1,8 +1,8 @@
 package dispatcher
 
 import (
-	"net/http"
 	"encoding/json"
+	"net/http"
 )
 
 func NewEventHandler(d *Dispatcher) http.HandlerFunc {
@@ -17,5 +17,3 @@ func NewEventHandler(d *Dispatcher) http.HandlerFunc {
 		d.Add(event)
 	}
 }
-
-

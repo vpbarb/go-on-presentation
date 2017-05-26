@@ -16,6 +16,6 @@ func NewHandler(d *dispatcher.Dispatcher) http.HandlerFunc {
 			return
 		}
 
-		d.Send(p)
+		d.Add(p)
 	}
 }

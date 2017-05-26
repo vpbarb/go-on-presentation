@@ -19,11 +19,16 @@ const (
 	maxBatchSize = 10
 )
 
+func init() {
+	log.SetFlags(log.Ltime)
+}
+
 func main() {
+	// START1 OMIT
 	d := dispatcher.New(workersCount, sendInterval, queueSize, maxBatchSize)
 
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt, os.Kill)
+	signalChan := make(chan os.Signal, 1)            // HL
+	signal.Notify(signalChan, os.Interrupt, os.Kill) // HL
 
 	listener, err := net.Listen("tcp", "localhost:9090")
 	if err != nil {
@@ -34,13 +39,14 @@ func main() {
 
 	log.Printf("Start listening on %s", listener.Addr())
 
-	stopChan := make(chan struct{})
+	stopChan := make(chan struct{}) // HL
 
 	go func() {
-		<-signalChan
+		<-signalChan // HL
 		listener.Close()
 		close(stopChan)
 	}()
 
 	d.Run(stopChan)
+	// STOP1 OMIT
 }

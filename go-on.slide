@@ -49,6 +49,16 @@ EXAMPLE
 
 EXAMPLE
 
+* Graceful shutdown
+
+.play examples/dispatcher/server/cmd/main.go /START1/,/STOP1/
+
+* Run dispatcher
+
+Let's run dispatcher and see how it works finally.
+
+.play examples/run_dispatcher.go /START1/,/STOP1/
+
 * Conclusions
 
 Goroutines and channels make it easy to express complex operations dealing with

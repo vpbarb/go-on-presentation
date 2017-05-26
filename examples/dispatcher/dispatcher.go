@@ -31,8 +31,8 @@ func New(workersCount int, sendInterval time.Duration, queueSize int, maxBatchSi
 }
 
 func (d *Dispatcher) Run(stop chan struct{}) {
-	log.Print("dispatcher is started")
-	defer log.Print("dispatcher is stopped")
+	log.Print("dispatcher start")
+	defer log.Print("dispatcher stop")
 
 	d.workersWG.Add(d.workersCount)
 	for i := 0; i < d.workersCount; i++ {
@@ -47,42 +47,51 @@ func (d *Dispatcher) Run(stop chan struct{}) {
 	d.workersWG.Wait()
 }
 
-func (d *Dispatcher) Send(p Payload) {
+func (d *Dispatcher) Add(p Payload) {
 	d.queue <- p
 }
 
 func (d *Dispatcher) worker(i int) {
 	var batch []Payload
 
-	log.Printf("worker %d is started", i)
-	defer log.Printf("worker %d is stopped", i)
+	log.Printf("[wrk_%d] start", i)
+	defer log.Printf("[wrk_%d] stop", i)
+
+	timer := time.NewTimer(d.sendInterval)
+	defer timer.Stop()
+
+	send := func(reason string) {
+		if len(batch) == 0 {
+			return
+		}
+		t := time.Now()
+		time.Sleep(time.Duration(rand.Intn(200)) * time.Millisecond) // Fake delay for example
+		log.Printf("[wrk_%d, %s] sent %d payloads in %s", i, reason, len(batch), time.Since(t))
+		batch = nil
+		timer.Reset(d.sendInterval)
+	}
 
 	for {
 		select {
 		case p := <-d.queue:
 			batch = append(batch, p)
 			if len(batch) >= d.maxBatchSize {
-				log.Printf("worker %d sends batch because of size", i)
-				d.send(i, batch)
-				batch = nil
+				send("size")
 			}
-		case <-time.After(d.sendInterval):
-			log.Printf("worker %d sends batch because of time", i)
-			d.send(i, batch)
-			batch = nil
+		case <-timer.C:
+			send("timer")
 		case <-d.workersStop:
-			log.Printf("worker %d sends batch because of stop", i)
-			d.send(i, batch)
+			send("stop")
 			return
 		}
 	}
 }
 
-func (d *Dispatcher) send(workerIndex int, batch []Payload) {
+func (d *Dispatcher) send(workerIndex int, batch []Payload, reason string) {
 	if len(batch) == 0 {
 		return
 	}
 	t := time.Now()
 	time.Sleep(time.Duration(rand.Intn(200)) * time.Millisecond) // Fake delay for example
-	log.Printf("worker %d sent batch of %d payloads in %s", workerIndex, len(batch), time.Since(t))
+	log.Printf("[wrk_%d, %s] sent %d payloads in %s", workerIndex, reason, len(batch), time.Since(t))
 }

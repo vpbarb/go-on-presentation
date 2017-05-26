@@ -2,6 +2,7 @@ package dispatcher
 
 import (
 	"log"
+	"math/rand"
 	"sync"
 	"time"
 )
@@ -11,73 +12,77 @@ type (
 		workersCount int
 		sendInterval time.Duration
 		maxBatchSize int
-		done         chan struct{}
-		queue        chan event
+		queue        chan Payload
+		workersStop  chan struct{}
 		workersWG    sync.WaitGroup
 	}
 
-	event map[string]string
+	Payload map[string]string
 )
 
-func New(workersCount int, sendInterval time.Duration, bufSize int, maxBatchSize int) *Dispatcher {
+func New(workersCount int, sendInterval time.Duration, queueSize int, maxBatchSize int) *Dispatcher {
 	return &Dispatcher{
 		workersCount: workersCount,
 		sendInterval: sendInterval,
 		maxBatchSize: maxBatchSize,
-		done:         make(chan struct{}),
-		queue:        make(chan event, bufSize),
+		queue:        make(chan Payload, queueSize),
+		workersStop:  make(chan struct{}),
 	}
 }
 
-func (d *Dispatcher) Start() {
+func (d *Dispatcher) Run(stop chan struct{}) {
+	log.Print("dispatcher is started")
+	defer log.Print("dispatcher is stopped")
+
 	d.workersWG.Add(d.workersCount)
 	for i := 0; i < d.workersCount; i++ {
-		go func(idx int) {
+		go func(i int) {
 			defer d.workersWG.Done()
-			d.worker(idx)
+			d.worker(i)
 		}(i)
 	}
-	log.Println("dispatcher is started")
-}
 
-func (d *Dispatcher) Stop() {
-	close(d.done)
+	<-stop
+	close(d.workersStop)
 	d.workersWG.Wait()
-	log.Println("dispatcher is stopped")
 }
 
-func (d *Dispatcher) Add(event event) {
-	d.queue <- event
+func (d *Dispatcher) Send(p Payload) {
+	d.queue <- p
 }
 
-func (d *Dispatcher) worker(idx int) {
-	var batch []event
+func (d *Dispatcher) worker(i int) {
+	var batch []Payload
 
-	log.Printf("worker %d is started\n", idx)
-	defer log.Printf("worker %d is stopped\n", idx)
-
-	send := func(batch []event) {
-		if len(batch) == 0 {
-			return
-		}
-		log.Printf("start sending batch of %d events\n", len(batch))
-		time.Sleep(250 * time.Millisecond) // Fake delay to show example
-		log.Printf("complete sending batch of %d events\n", len(batch))
-	}
+	log.Printf("worker %d is started", i)
+	defer log.Printf("worker %d is stopped", i)
 
 	for {
 		select {
-		case event := <-d.queue:
-			batch = append(batch, event)
+		case p := <-d.queue:
+			batch = append(batch, p)
 			if len(batch) >= d.maxBatchSize {
-				send(batch)
+				log.Printf("worker %d sends batch because of size", i)
+				d.send(i, batch)
 				batch = nil
 			}
 		case <-time.After(d.sendInterval):
-			send(batch)
+			log.Printf("worker %d sends batch because of time", i)
+			d.send(i, batch)
 			batch = nil
-		case <-d.done:
+		case <-d.workersStop:
+			log.Printf("worker %d sends batch because of stop", i)
+			d.send(i, batch)
 			return
 		}
 	}
+}
+
+func (d *Dispatcher) send(workerIndex int, batch []Payload) {
+	if len(batch) == 0 {
+		return
+	}
+	t := time.Now()
+	time.Sleep(time.Duration(rand.Intn(200)) * time.Millisecond) // Fake delay for example
+	log.Printf("worker %d sent batch of %d payloads in %s", workerIndex, len(batch), time.Since(t))
 }

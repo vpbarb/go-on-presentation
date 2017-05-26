@@ -5,10 +5,57 @@ Vadim Petrov
 Software engineer, Juno
 vadim.petrov@gmail.com
 
-* Hello, World!
+* Topic
 
-Hi!
+* What is concurrency?
 
-* Bye, bye!
+Concurrency is the composition of independently executing computations.
 
-Thank you!
+Concurrency is a way to structure software, particularly as a way to write clean code that interacts well with the real world.
+
+It is not parallelism.
+
+* Concurrency is not parallelism
+
+Concurrency is not parallelism, although it enables parallelism.
+
+If you have only one processor, your program can still be concurrent but it cannot be parallel.
+
+On the other hand, a well-written concurrent program might run efficiently in parallel on a multiprocessor.
+
+* Goroutines
+
+What is a goroutine? It's an independently executing function, launched by a go statement.
+
+It has its own call stack.
+
+It's very cheap. It's practical to have thousands, even hundreds of thousands of goroutines.
+
+* EXAMPLES
+
+* Communication
+
+Real conversations require communication.
+
+Don't communicate by sharing memory, share memory by communicating.
+
+* Channels
+
+A channel in Go provides a connection between two goroutines, allowing them to communicate.
+
+EXAMPLE
+
+* Select
+
+EXAMPLE
+
+* Conclusions
+
+Goroutines and channels make it easy to express complex operations dealing with
+multiple inputs
+multiple outputs
+timeouts
+failure
+And they're fun to use.
+
+* Thank you!

@@ -75,8 +75,6 @@ To be fixed:
 - Make dispatcher scalable: call processor in many streams
 - Use *concurrency* Fan-out pattern
 
-* Concurrency
-
 * What is concurrency? TBD
 
 Concurrency is the composition of independently executing computations.
@@ -118,8 +116,6 @@ Examples TBD:
 - Read/write
 - Iterate through channel
 - Get length
-
-* Back to dispatcher
 
 * Dispatcher v2: plan
 
@@ -247,7 +243,7 @@ Let's run dispatcher and see how it works finally.
 
 * Dispatcher is not perfect
 
-There is a enough space to improve dispatcher.
+There is a space to improve dispatcher.
 
 - Handle processor errors
 - Retry mechanics in case of errors

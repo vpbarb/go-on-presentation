@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Barberrrry/go-on-presentation/examples/dispatcher/dispatcher.v4"
+	"github.com/Barberrrry/go-on-presentation/examples/dispatcher/processor"
 	"github.com/Barberrrry/go-on-presentation/examples/dispatcher/server"
 )
 
@@ -19,12 +20,12 @@ func init() {
 func main() {
 	// START1 OMIT
 	cfg := dispatcher.Config{
-		WorkersCount: 3,
-		SendInterval: 5 * time.Second,
-		QueueSize:    10000,
-		MaxBatchSize: 10,
+		WorkersCount:  3,
+		FlushInterval: 5 * time.Second,
+		QueueSize:     10000,
+		MaxBatchSize:  10,
 	}
-	d := dispatcher.New(cfg)
+	d := dispatcher.New(cfg, &processor.Fake{})
 
 	signalChan := make(chan os.Signal, 1)            // HL
 	signal.Notify(signalChan, os.Interrupt, os.Kill) // HL

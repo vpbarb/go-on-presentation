@@ -11,65 +11,67 @@ import (
 
 type (
 	Processor interface {
-		Process(processor.Batch) error
+		Process(processor.Batch)
 	}
 	Payload map[string]string
+)
 
+type (
 	Dispatcher struct {
-		processor    Processor
-		workersCount int
-		maxBatchSize int
-		queueSize    int
-		sendInterval time.Duration
-		queue        chan Payload
-		isRun        bool           // HL
-		workersWG    sync.WaitGroup // HL
+		cfg       Config
+		processor Processor
+		queue     chan Payload
 	}
 	Config struct {
-		MaxBatchSize int
-		WorkersCount int
-		QueueSize    int
-		SendInterval time.Duration
+		MaxBatchSize  int
+		WorkersCount  int
+		QueueSize     int
+		FlushInterval time.Duration
 	}
 )
 
-func New(cfg Config) *Dispatcher {
+func New(cfg Config, processor Processor) *Dispatcher {
 	return &Dispatcher{
-		processor:    &processor.Fake{},
-		maxBatchSize: cfg.MaxBatchSize,
-		workersCount: cfg.WorkersCount,
-		queueSize:    cfg.QueueSize,
-		sendInterval: cfg.SendInterval,
+		cfg:       cfg,
+		processor: processor,
 	}
 }
 
-func (d *Dispatcher) Add(payload Payload) error {
-	if !d.isRun { // HL
-		return errors.New("dispatcher is not running") // HL
-	} // HL
+// START2 OMIT
+func (d *Dispatcher) Add(payload Payload) (err error) {
+	defer func() { // HL
+		if r := recover(); r != nil { // HL
+			err = errors.New("dispatcher is not running") // HL
+		} // HL
+	}() // HL
 	log.Printf("add payload: %v", payload)
 	d.queue <- payload
 	return nil
 }
 
+// STOP2 OMIT
+
+// START3 OMIT
 func (d *Dispatcher) Run(stopChan chan struct{}) {
 	log.Print("dispatcher start")
 	defer log.Print("dispatcher stop") // HL
 
-	d.queue, d.isRun = make(chan Payload, d.queueSize), true // HL
-
-	d.workersWG.Add(d.workersCount) // HL
-	for i := 0; i < d.workersCount; i++ {
+	d.queue = make(chan Payload, d.cfg.QueueSize) // HL
+	wg := sync.WaitGroup{}                        // HL
+	wg.Add(d.cfg.WorkersCount)                    // HL
+	for i := 0; i < d.cfg.WorkersCount; i++ {
 		go func(i int) {
-			defer d.workersWG.Done() // HL
+			defer wg.Done() // HL
 			d.worker(i)
 		}(i)
 	}
 
-	<-stopChan
-	close(d.queue)     // HL
-	d.workersWG.Wait() // HL
+	<-stopChan     // HL
+	close(d.queue) // HL
+	wg.Wait()      // HL
 }
+
+// STOP3 OMIT
 
 func (d *Dispatcher) worker(i int) {
 	var batch processor.Batch
@@ -77,17 +79,18 @@ func (d *Dispatcher) worker(i int) {
 	log.Printf("wrk_%d start", i)
 	defer log.Printf("wrk_%d stop", i) // HL
 
-	timer := time.NewTimer(d.sendInterval)
+	timer := time.NewTimer(d.cfg.FlushInterval)
 	defer timer.Stop() // HL
 
 	flush := func(reason string) {
 		t := time.Now()
 		d.processor.Process(batch)
-		log.Printf("wrk_%d proceed by '%s' %d payloads in %s", i, reason, len(batch), time.Since(t))
+		log.Printf("wrk_%d flushed by '%s' %d payloads in %s", i, reason, len(batch), time.Since(t))
 		batch = nil
-		timer.Reset(d.sendInterval)
+		timer.Reset(d.cfg.FlushInterval)
 	}
 
+	// START4 OMIT
 	for {
 		select {
 		case payload, opened := <-d.queue: // HL
@@ -96,11 +99,12 @@ func (d *Dispatcher) worker(i int) {
 				return        // HL
 			} // HL
 			batch = append(batch, processor.Item(payload))
-			if len(batch) >= d.maxBatchSize {
+			if len(batch) >= d.cfg.MaxBatchSize {
 				flush("size")
 			}
 		case <-timer.C:
 			flush("timer")
 		}
 	}
+	// STOP4 OMIT
 }

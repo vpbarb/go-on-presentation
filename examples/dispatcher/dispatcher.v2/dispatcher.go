@@ -9,31 +9,31 @@ import (
 
 type (
 	Processor interface {
-		Process(processor.Batch) error
+		Process(processor.Batch)
 	}
 	Payload map[string]string
-	// START1 OMIT
+)
+
+// START1 OMIT
+type (
 	Dispatcher struct {
-		processor    Processor
-		maxBatchSize int
-		workersCount int          // HL
-		queueSize    int          // HL
-		queue        chan Payload // HL
+		cfg       Config
+		processor Processor
+		queue     chan Payload // HL
 	}
 	Config struct {
 		MaxBatchSize int
 		WorkersCount int // HL
 		QueueSize    int // HL
 	}
-	// STOP1 OMIT
 )
 
-func New(cfg Config) *Dispatcher {
+// STOP1 OMIT
+
+func New(cfg Config, processor Processor) *Dispatcher {
 	return &Dispatcher{
-		processor:    &processor.Fake{},
-		maxBatchSize: cfg.MaxBatchSize,
-		workersCount: cfg.WorkersCount,
-		queueSize:    cfg.QueueSize,
+		cfg:       cfg,
+		processor: processor,
 	}
 }
 
@@ -47,9 +47,9 @@ func (d *Dispatcher) Add(payload Payload) error {
 func (d *Dispatcher) Run() {
 	log.Print("dispatcher start")
 
-	d.queue = make(chan Payload, d.queueSize) // HL
+	d.queue = make(chan Payload, d.cfg.QueueSize) // HL
 
-	for i := 0; i < d.workersCount; i++ { // HL
+	for i := 0; i < d.cfg.WorkersCount; i++ { // HL
 		go func(i int) { // HL
 			d.worker(i) // HL
 		}(i) // HL
@@ -60,23 +60,23 @@ func (d *Dispatcher) Run() {
 
 // START3 OMIT
 func (d *Dispatcher) worker(i int) {
-	var batch processor.Batch
+	var batch processor.Batch // HL
 
 	log.Printf("wrk_%d start", i)
 
-	flush := func() {
+	flush := func() { // HL
 		t := time.Now()
-		d.processor.Process(batch)
-		log.Printf("wrk_%d proceed %d payloads in %s", i, len(batch), time.Since(t))
-		batch = nil
-	}
+		d.processor.Process(batch) // HL
+		log.Printf("wrk_%d flushed %d payloads in %s", i, len(batch), time.Since(t))
+		batch = nil // HL
+	} // HL
 
-	for payload := range d.queue {
+	for payload := range d.queue { // HL
 		batch = append(batch, processor.Item(payload))
-		if len(batch) >= d.maxBatchSize {
-			flush()
+		if len(batch) >= d.cfg.MaxBatchSize {
+			flush() // HL
 		}
-	}
+	} // HL
 }
 
 // STOP3 OMIT

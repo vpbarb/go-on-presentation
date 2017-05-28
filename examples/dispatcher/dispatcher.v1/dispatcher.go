@@ -8,51 +8,52 @@ import (
 	"github.com/Barberrrry/go-on-presentation/examples/dispatcher/processor"
 )
 
-// START1 OMIT
 type (
 	Processor interface {
-		Process(processor.Batch) error
+		Process(processor.Batch)
 	}
-	Payload    map[string]string
+	Payload map[string]string
+)
+
+// START1 OMIT
+type (
 	Dispatcher struct {
-		processor    Processor
-		maxBatchSize int
-		flushLock    sync.Mutex
-		batch        processor.Batch
+		cfg       Config
+		processor Processor
+		flushLock sync.Mutex
+		batch     processor.Batch
 	}
 	Config struct {
 		MaxBatchSize int
 	}
 )
 
-// STOP1 OMIT
-
-// START2 OMIT
-func New(cfg Config) *Dispatcher {
+func New(cfg Config, processor Processor) *Dispatcher {
 	return &Dispatcher{
-		processor:    &processor.Fake{},
-		maxBatchSize: cfg.MaxBatchSize,
+		cfg:       cfg,
+		processor: processor,
 	}
 }
 
-// STOP2 OMIT
+// STOP1 OMIT
 
-// START3 OMIT
+// START2 OMIT
 func (d *Dispatcher) Add(payload Payload) error {
 	log.Printf("add payload: %v", payload)
 
-	d.flushLock.Lock()
-	defer d.flushLock.Unlock()
+	d.flushLock.Lock()         // HL
+	defer d.flushLock.Unlock() // HL
 
 	d.batch = append(d.batch, processor.Item(payload))
-	if len(d.batch) >= d.maxBatchSize {
+
+	if len(d.batch) >= d.cfg.MaxBatchSize { // HL
 		t := time.Now()
-		d.processor.Process(d.batch)
-		log.Printf("proceed %d payloads in %s", len(d.batch), time.Since(t))
-		d.batch = nil
+		d.processor.Process(d.batch) // HL
+		log.Printf("flushed %d payloads in %s", len(d.batch), time.Since(t))
+		d.batch = nil // HL
 	}
 
 	return nil
 }
 
-// STOP3 OMIT
+// STOP2 OMIT

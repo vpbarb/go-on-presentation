@@ -5,25 +5,87 @@ Vadim Petrov
 Software engineer, Juno
 vadim.petrov@gmail.com
 
-* Topic
+* Hello, world?
 
-* What is concurrency?
+- Doesn't show all language features
+- Too easy for implementation
+- Boring demonstration
+
+* To do
+
+- Receive data by HTTP
+- Accumulate data into internal buffer
+- Transfer data in a batches of N to some processor
+- All received data must be processed (provide graceful shutdown)
+
+* Out of the scope
+
+- Kind of processing. It may be any implementation: send to external service, write into file, whatever...
+- Processor should takes care about errors and possible retry logic.
+
+* Let's go to work
+
+All demonstrated code is real and runnable.
+
+You can find it here:
+.link https://github.com/Barberrrry/go-on-presentation/tree/master/examples
+
+* Processor
+
+Create fake processor with random processing time up to 200 ms.
+
+.code examples/dispatcher/processor/processor.go
+
+* Dispatcher
+
+Create `dispatcher` package with common types.
+
+.code examples/dispatcher/dispatcher.v0/dispatcher.go
+
+* Dispatcher v1: naive plan
+
+- Configurable size of batch to be processing
+- Use a slice as a buffer
+- Append incoming data to the slice
+- If length of the slice reaches limit, flush the slice data to processor
+
+* Dispatcher v1: configuration
+
+.code examples/dispatcher/dispatcher.v1/dispatcher.go /START1/,/STOP1/
+
+* Dispatcher v1: implementation
+
+.code examples/dispatcher/dispatcher.v1/dispatcher.go /START2/,/STOP2/
+
+* Dispatcher v1: run
+
+.play examples/run_dispatcher_v1.go /START/,/STOP/
+
+* Dispatcher v1: conclusion
+
+Resolution: BAD
+
+- Function `Add()` waits for processor each N calls
+- Processor is called in one stream
+- Loose the data on process shutdown
+
+To be fixed:
+
+- Function `Add()` shouldn't be blocking
+- Make dispatcher scalable: call processor in many streams
+- Use *concurrency* Fan-out pattern
+
+* Concurrency
+
+* What is concurrency? TBD
 
 Concurrency is the composition of independently executing computations.
 
 Concurrency is a way to structure software, particularly as a way to write clean code that interacts well with the real world.
 
-It is not parallelism.
-
-* Concurrency is not parallelism
-
 Concurrency is not parallelism, although it enables parallelism.
 
-If you have only one processor, your program can still be concurrent but it cannot be parallel.
-
-On the other hand, a well-written concurrent program might run efficiently in parallel on a multiprocessor.
-
-* Goroutines
+* Goroutines TBD
 
 What is a goroutine? It's an independently executing function, launched by a go statement.
 
@@ -31,36 +93,170 @@ It has its own call stack.
 
 It's very cheap. It's practical to have thousands, even hundreds of thousands of goroutines.
 
-* EXAMPLES
+Number of parallel working goroutines depends on Go configuration. By default, this number is equal to processors amount.
 
-* Communication
+TBD GOMAXPROCS
 
-Real conversations require communication.
+* Communication TBD
+
+Multiple goroutines require communication. Goroutine without any input or output is useless.
 
 Don't communicate by sharing memory, share memory by communicating.
 
-* Channels
+* Channels TBD
 
 A channel in Go provides a connection between two goroutines, allowing them to communicate.
 
-EXAMPLE
+A channel is a first-class type.
+
+Channel may be buffered or unbuffered.
+
+Examples TBD:
+
+- Create
+- Close
+- Read/write
+- Iterate through channel
+- Get length
+
+* Back to dispatcher
+
+* Dispatcher v2: plan
+
+- Run configurable number of background workers to make multi-stream processing
+- Use channel to fan-out incoming data among workers
+- Each worker collects own batch
+
+* Dispatcher v2: configuration
+
+Improve configuration and use channel as queue of incoming payloads.
+
+.code examples/dispatcher/dispatcher.v2/dispatcher.go /START1/,/STOP1/
+
+* Dispatcher v2: new function
+
+Now we need to create `Run()` function which will init queue channel and start workers. `Add()` becomes simple.
+
+.code examples/dispatcher/dispatcher.v2/dispatcher.go /START2/,/STOP2/
+
+* Dispatcher v2: worker
+
+Batch collection migrates to worker. `i` param is required only for nice log messages.
+
+.code examples/dispatcher/dispatcher.v2/dispatcher.go /START3/,/STOP3/
+
+* Dispatcher v2: run
+
+.play examples/run_dispatcher_v2.go /START/,/STOP/
+
+* Dispatcher v2: conclusion
+
+Resolution: better, but still NOT GOOD
+
++ Function `Add()` is not blocking anymore
++ Workers are able to call processor in several streams
+-- Batch is flushed when is full only (data may get stale)
+-- Still loose the data on process shutdown
+
+To be fixed:
+
+- Flush batch after some timeout since last data came
+- Use concurrency Timeout pattern
 
 * Select
 
-EXAMPLE
+TBD description with examples
 
-* Graceful shutdown
+* Dispatcher v3: plan
 
-.play examples/dispatcher/server/cmd/main.go /START1/,/STOP1/
+- Extend dispatcher configuration to set flush interval
+- Force flush after timeout is expired
 
-* Run dispatcher
+* Dispatcher v3: configuration
+
+Extend configuration with flush interval.
+
+.code examples/dispatcher/dispatcher.v3/dispatcher.go /START1/,/STOP1/
+
+* Dispatcher v3: flush timeout
+
+Create timeout and use it in `select` statement.
+
+TBD minimize code
+
+.code examples/dispatcher/dispatcher.v3/dispatcher.go /START2/,/STOP2/
+
+* Dispatcher v3: run
+
+.play examples/run_dispatcher_v3.go /START/,/STOP/
+
+We need to wait more than flush interval.
+
+* Dispatcher v3: conclusion
+
+Resolution: QUITE GOOD
+
++ Flush interval does not depend on payloads incoming rate
+-- We didn't loose data only because of 500 ms waiting time before exit, but process may down at any time.
+
+To be fixed:
+
+- Graceful shutdown implementation
+
+* Dispatcher v4: final version!
+
+Plan:
+
+- Implement stop channel to notify dispatcher about shutdown
+- Close the queue channel to stop adding payloads
+- Complete all the work before exit
+
+* Dispatcher v4: wait for workers
+
+Use `sync.WaitGroup` to wait for all workers are stopped.
+
+.code examples/dispatcher/dispatcher.v4/dispatcher.go /START3/,/STOP3/
+
+* Dispatcher v4: don't panic
+
+Check whether the dispatcher is working when payload is added. It may be done only by panic recover.
+
+.code examples/dispatcher/dispatcher.v4/dispatcher.go /START2/,/STOP2/
+
+* Dispatcher v4: finally
+
+All data in queue must be passed to processor, so worker must continue until queue channel is closed.
+
+.code examples/dispatcher/dispatcher.v4/dispatcher.go /START4/,/STOP4/
+
+* Dispatcher v4: run
+
+.play examples/run_dispatcher_v4.go /START/,/STOP/
+
+* HTTP handler
+
+TBD
+
+* HTTP server
+
+TBD
+
+* Run dispatcher service
 
 Let's run dispatcher and see how it works finally.
 
-.play examples/run_dispatcher.go /START1/,/STOP1/
+* Dispatcher is not perfect
+
+There is a enough space to improve dispatcher.
+
+- Handle processor errors
+- Retry mechanics in case of errors
+- Use `context` package instead of custom stop channel
+- etc
 
 * Conclusions
 
+TBD
 Goroutines and channels make it easy to express complex operations dealing with
 multiple inputs
 multiple outputs
@@ -68,4 +264,18 @@ timeouts
 failure
 And they're fun to use.
 
-* Thank you!
+* Questions?
+
+All demonstrated code may be found here:
+
+.link https://github.com/Barberrrry/go-on-presentation/tree/master/examples
+
+Concurrency in Go
+
+.link https://www.golang-book.com/books/intro/10
+.link https://golang.org/doc/effective_go.html#concurrency
+
+"Go Concurrency Patterns" by Rob Pike
+
+.link https://www.youtube.com/watch?v=f6kdp27TYZs
+.link https://talks.golang.org/2012/concurrency.slide

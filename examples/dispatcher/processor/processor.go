@@ -5,19 +5,15 @@ import (
 	"time"
 )
 
-// START1 OMIT
 type (
 	Item  map[string]string
 	Batch []Item
 	Fake  struct{}
 )
 
-func (f *Fake) Process(batch Batch) error {
+func (f *Fake) Process(batch Batch) {
 	if len(batch) == 0 {
-		return nil
+		return
 	}
-	time.Sleep(time.Duration(rand.Intn(200)) * time.Millisecond) // Fake process delay
-	return nil
+	time.Sleep(time.Duration(rand.Intn(200)) * time.Millisecond) // Fake process time
 }
-
-// STOP1 OMIT

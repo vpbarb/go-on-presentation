@@ -9,33 +9,32 @@ import (
 
 type (
 	Processor interface {
-		Process(processor.Batch) error
+		Process(processor.Batch)
 	}
 	Payload map[string]string
+)
 
+// START1 OMIT
+type (
 	Dispatcher struct {
-		processor    Processor
-		workersCount int
-		maxBatchSize int
-		queueSize    int
-		sendInterval time.Duration // HL
-		queue        chan Payload
+		cfg       Config
+		processor Processor
+		queue     chan Payload
 	}
 	Config struct {
-		WorkersCount int
-		MaxBatchSize int
-		QueueSize    int
-		SendInterval time.Duration // HL
+		WorkersCount  int
+		MaxBatchSize  int
+		QueueSize     int
+		FlushInterval time.Duration // HL
 	}
 )
 
-func New(cfg Config) *Dispatcher {
+// STOP1 OMIT
+
+func New(cfg Config, processor Processor) *Dispatcher {
 	return &Dispatcher{
-		processor:    &processor.Fake{},
-		workersCount: cfg.WorkersCount,
-		maxBatchSize: cfg.MaxBatchSize,
-		queueSize:    cfg.QueueSize,
-		sendInterval: cfg.SendInterval,
+		processor: processor,
+		cfg:       cfg,
 	}
 }
 
@@ -48,35 +47,36 @@ func (d *Dispatcher) Add(payload Payload) error {
 func (d *Dispatcher) Run() {
 	log.Print("dispatcher start")
 
-	d.queue = make(chan Payload, d.queueSize)
+	d.queue = make(chan Payload, d.cfg.QueueSize)
 
-	for i := 0; i < d.workersCount; i++ {
+	for i := 0; i < d.cfg.WorkersCount; i++ {
 		go func(i int) {
 			d.worker(i)
 		}(i)
 	}
 }
 
+// START2 OMIT
 func (d *Dispatcher) worker(i int) {
 	var batch processor.Batch
 
 	log.Printf("wrk_%d start", i)
 
-	timer := time.NewTimer(d.sendInterval)
+	timer := time.NewTimer(d.cfg.FlushInterval) // HL
 
 	flush := func(reason string) {
 		t := time.Now()
 		d.processor.Process(batch)
-		log.Printf("wrk_%d proceed by '%s' %d payloads in %s", i, reason, len(batch), time.Since(t))
+		log.Printf("wrk_%d flushed by '%s' %d payloads in %s", i, reason, len(batch), time.Since(t))
 		batch = nil
-		timer.Reset(d.sendInterval) // HL
+		timer.Reset(d.cfg.FlushInterval) // HL
 	}
 
 	for {
 		select { // HL
 		case payload := <-d.queue: // HL
 			batch = append(batch, processor.Item(payload))
-			if len(batch) >= d.maxBatchSize {
+			if len(batch) >= d.cfg.MaxBatchSize {
 				flush("size")
 			}
 		case <-timer.C: // HL
@@ -84,3 +84,5 @@ func (d *Dispatcher) worker(i int) {
 		} // HL
 	}
 }
+
+// STOP2 OMIT

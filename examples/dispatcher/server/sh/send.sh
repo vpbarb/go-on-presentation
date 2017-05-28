@@ -2,7 +2,7 @@
 
 i=1
 while [ $i -le $1 ]; do
-    payload="{\"key\":\"value_$i\"}"
+    payload="{\"value\":\"$i\"}"
     curl -i -d $payload "http://localhost:9090/"
     let i+=1
 done

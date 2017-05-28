@@ -8,15 +8,8 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/Barberrrry/go-on-presentation/examples/dispatcher"
+	"github.com/Barberrrry/go-on-presentation/examples/dispatcher/dispatcher.v4"
 	"github.com/Barberrrry/go-on-presentation/examples/dispatcher/server"
-)
-
-const (
-	workersCount = 3
-	sendInterval = 10 * time.Second
-	queueSize    = 10000
-	maxBatchSize = 10
 )
 
 func init() {
@@ -25,28 +18,31 @@ func init() {
 
 func main() {
 	// START1 OMIT
-	d := dispatcher.New(workersCount, sendInterval, queueSize, maxBatchSize)
+	cfg := dispatcher.Config{
+		WorkersCount: 3,
+		SendInterval: 5 * time.Second,
+		QueueSize:    10000,
+		MaxBatchSize: 10,
+	}
+	d := dispatcher.New(cfg)
 
 	signalChan := make(chan os.Signal, 1)            // HL
 	signal.Notify(signalChan, os.Interrupt, os.Kill) // HL
 
-	listener, err := net.Listen("tcp", "localhost:9090")
-	if err != nil {
-		log.Fatal(err)
-	}
+	listener, err := net.Listen("tcp", "localhost:9090") // HL
+	if err != nil {                                      // HL
+		log.Fatal(err) // HL
+	} // HL
 
-	go http.Serve(listener, server.NewHandler(d))
+	go http.Serve(listener, server.NewDispatcherHandler(d)) // HL
+	log.Printf("Start listening on %s", listener.Addr())    // OMIT
 
-	log.Printf("Start listening on %s", listener.Addr())
-
-	stopChan := make(chan struct{}) // HL
-
+	stopChan := make(chan struct{})
 	go func() {
-		<-signalChan // HL
-		listener.Close()
+		<-signalChan     // HL
+		listener.Close() // HL
 		close(stopChan)
 	}()
-
 	d.Run(stopChan)
 	// STOP1 OMIT
 }

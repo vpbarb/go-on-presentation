@@ -233,9 +233,13 @@ All data in queue must be passed to processor, so worker must continue until que
 
 TBD
 
+.code examples/dispatcher/server/handler.go /START1/,/STOP1/
+
 * HTTP server
 
 TBD
+
+.code examples/dispatcher/server/cmd/main.go /START1/,/STOP1/
 
 * Run dispatcher service
 

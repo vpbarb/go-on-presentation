@@ -39,8 +39,8 @@ func New(cfg Config, processor Processor) *Dispatcher {
 }
 
 func (d *Dispatcher) Add(payload Payload) error {
-	log.Printf("add payload: %v", payload)
 	d.queue <- payload
+	log.Printf("added: %v", payload)
 	return nil
 }
 

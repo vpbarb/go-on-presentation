@@ -31,12 +31,10 @@ func main() {
 		}
 		close(stopChan) // HL
 	}()
-	go func() { // HL
-		<-stopChan                                            // HL
-		err := d.Add(dispatcher.Payload{"value": "slowpoke"}) // HL
-		log.Printf("add error: %v", err)                      // HL
-	}() // HL
 	d.Run(stopChan) // HL
+
+	err := d.Add(dispatcher.Payload{"value": "slowpoke"}) // HL
+	log.Printf("add error: %v", err)                      // HL
 }
 
 // STOP OMIT

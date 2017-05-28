@@ -44,8 +44,8 @@ func (d *Dispatcher) Add(payload Payload) (err error) {
 			err = errors.New("dispatcher is not running") // HL
 		} // HL
 	}() // HL
-	log.Printf("add payload: %v", payload)
 	d.queue <- payload
+	log.Printf("added: %v", payload)
 	return nil
 }
 

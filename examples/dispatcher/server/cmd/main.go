@@ -14,11 +14,11 @@ import (
 )
 
 func init() {
-	log.SetFlags(log.Ltime)
+	log.SetFlags(log.Lmicroseconds)
 }
 
+// START1 OMIT
 func main() {
-	// START1 OMIT
 	cfg := dispatcher.Config{
 		WorkersCount:  3,
 		FlushInterval: 5 * time.Second,
@@ -36,7 +36,6 @@ func main() {
 	} // HL
 
 	go http.Serve(listener, server.NewDispatcherHandler(d)) // HL
-	log.Printf("Start listening on %s", listener.Addr())    // OMIT
 
 	stopChan := make(chan struct{})
 	go func() {
@@ -45,5 +44,6 @@ func main() {
 		close(stopChan)
 	}()
 	d.Run(stopChan)
-	// STOP1 OMIT
 }
+
+// STOP1 OMIT

@@ -39,12 +39,11 @@ func New(cfg Config, processor Processor) *Dispatcher {
 
 // START2 OMIT
 func (d *Dispatcher) Add(payload Payload) error {
-	log.Printf("add payload: %v", payload)
-
 	d.flushLock.Lock()         // HL
 	defer d.flushLock.Unlock() // HL
 
 	d.batch = append(d.batch, processor.Item(payload))
+	log.Printf("added: %v", payload)
 
 	if len(d.batch) >= d.cfg.MaxBatchSize { // HL
 		t := time.Now()

@@ -37,16 +37,22 @@ You can find it on GitHub.
 
 * Processor
 
+* Fake processor
+
 Create fake processor with random processing time up to 200 ms.
 
 .code examples/dispatcher/processor/processor.go /START/,/STOP/
 
+That's enough for processor.
+
+* Dispatcher v1
+
 * Dispatcher v1: naive plan
 
-- Use a slice for the buffer
+- Use a slice as a buffer
 - Append incoming data to the slice
 - Configurable batch size N to be processing
-- If buffer size reaches N, flush the buffer to processor
+- If buffer size reaches N, flush the buffer to `Processor`
 
 .image images/gopherswim.jpg 300 300
 
@@ -66,7 +72,7 @@ Create fake processor with random processing time up to 200 ms.
 
 Problems:
 
-- Function `Collect()` waits for processor each N calls
+- Function `Collect()` waits for `Processor` each N calls
 - Dispatcher can work only in a single thread
 - Loose the data on process shutdown
 
@@ -76,6 +82,8 @@ To be fixed:
 
 - Processing must not block collecting
 - Make dispatcher *concurrent*
+
+* Concurrency
 
 * What is concurrency?
 
@@ -177,6 +185,8 @@ Write to closed channel
 
 .play examples/channel_closed.go /START/,/STOP/
 
+* Dispatcher v2
+
 * Dispatcher v2: plan
 
 - Run several dispatcher workers to make multi-threaded processing
@@ -189,7 +199,7 @@ Improve configuration and use channel as queue of incoming payloads.
 
 .code examples/dispatcher/dispatcher.v2/dispatcher.go /START1/,/STOP1/
 
-* Dispatcher v2: new function
+* Dispatcher v2: run workers
 
 Now we need to create `Run()` function which will init queue channel and start workers. `Collect()` becomes simple.
 
@@ -197,7 +207,7 @@ Now we need to create `Run()` function which will init queue channel and start w
 
 * Dispatcher v2: worker
 
-Buffer is moved to worker. `i` param is required only for nice log messages.
+Buffer is moved to worker.
 
 .code examples/dispatcher/dispatcher.v2/dispatcher.go /START3/,/STOP3/
 
@@ -209,8 +219,8 @@ Buffer is moved to worker. `i` param is required only for nice log messages.
 
 Fixed:
 
-- Function `Collect()` is not blocked anymore by processor
-- Workers are able to call processor concurrently
+- Function `Collect()` is not blocked anymore by `Processor`
+- Workers are able to call `Processor` concurrently
 
 Problems:
 
@@ -222,6 +232,8 @@ Resolution: better, but still not good
 To be fixed:
 
 - Flush buffer after some timeout since last flush
+
+* Select
 
 * Select
 
@@ -238,6 +250,8 @@ A `select` blocks until one of its cases can run, then it executes that case. It
     case <-quit:
         return
     }
+
+* Dispatcher v3
 
 * Dispatcher v3: plan
 
@@ -276,9 +290,9 @@ To be fixed:
 
 - Graceful shutdown implementation
 
-* Dispatcher v4: final version!
+* Dispatcher v4. Final.
 
-Plan:
+* Dispatcher v4: plan
 
 - Use stop channel to shutdown dispatcher
 - Close the queue channel to stop collecting payloads
@@ -302,7 +316,7 @@ It may be done by panic recover.
 
 * Dispatcher v4: finally
 
-All data in queue must be passed to processor, so worker must continue until queue channel is closed.
+All data in queue must be passed to `Processor`, so worker must continue until queue channel is closed.
 
 .code examples/dispatcher/dispatcher.v4/dispatcher.go /START4/,/STOP4/
 
@@ -316,13 +330,15 @@ Resolution: good enough
 
 .image images/hallelujah.jpg 400 600
 
+* HTTP server
+
 * HTTP handler
 
 Create HTTP handler to get JSON from request body and collect it by dispatcher.
 
 .code examples/dispatcher/server/handler.go /START1/,/STOP1/
 
-* HTTP server
+* Start server
 
 .code examples/dispatcher/server/cmd/main.go /START1/,/STOP1/
 
@@ -334,7 +350,7 @@ Let's run HTTP service and see how it works finally.
 
 There is a space to improve dispatcher.
 
-- Handle processor errors
+- Handle `Processor` errors
 - Retry mechanics in case of errors
 - Use `context` package instead of custom stop channel
 - etc

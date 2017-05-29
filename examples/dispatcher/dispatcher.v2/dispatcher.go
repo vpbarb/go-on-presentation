@@ -38,9 +38,9 @@ func New(cfg Config, processor Processor) *Dispatcher {
 }
 
 // START2 OMIT
-func (d *Dispatcher) Add(payload Payload) error {
+func (d *Dispatcher) Collect(payload Payload) error {
 	d.queue <- payload // HL
-	log.Printf("added: %v", payload)
+	log.Printf("collected: %v", payload)
 	return nil
 }
 

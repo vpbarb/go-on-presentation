@@ -11,11 +11,13 @@ import (
 func NewDispatcherHandler(d *dispatcher.Dispatcher) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		var p dispatcher.Payload
+
 		if err := json.NewDecoder(req.Body).Decode(&p); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		if err := d.Add(p); err != nil {
+
+		if err := d.Collect(p); err != nil { // HL
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}

@@ -19,12 +19,7 @@ func init() {
 
 // START1 OMIT
 func main() {
-	cfg := dispatcher.Config{
-		WorkersCount:  3,
-		FlushInterval: 5 * time.Second,
-		QueueSize:     10000,
-		MaxBatchSize:  10,
-	}
+	cfg := dispatcher.Config{WorkersCount: 3, FlushInterval: 5 * time.Second, QueueSize: 10000, MaxBatchSize: 10}
 	d := dispatcher.New(cfg, &processor.Fake{})
 
 	signalChan := make(chan os.Signal, 1)            // HL

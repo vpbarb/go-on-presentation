@@ -38,27 +38,28 @@ func New(cfg Config, processor Processor) *Dispatcher {
 }
 
 // START2 OMIT
-func (d *Dispatcher) Add(payload Payload) (err error) {
+func (d *Dispatcher) Collect(payload Payload) (err error) {
 	defer func() { // HL
 		if r := recover(); r != nil { // HL
 			err = errors.New("dispatcher is not running") // HL
 		} // HL
 	}() // HL
 	d.queue <- payload
-	log.Printf("added: %v", payload)
+	log.Printf("collected: %v", payload)
 	return nil
 }
 
 // STOP2 OMIT
 
 // START3 OMIT
-func (d *Dispatcher) Run(stopChan chan struct{}) {
+func (d *Dispatcher) Run(stop chan struct{}) {
 	log.Print("dispatcher start")
 	defer log.Print("dispatcher stop") // HL
 
 	d.queue = make(chan Payload, d.cfg.QueueSize) // HL
-	wg := sync.WaitGroup{}                        // HL
-	wg.Add(d.cfg.WorkersCount)                    // HL
+
+	wg := sync.WaitGroup{}     // HL
+	wg.Add(d.cfg.WorkersCount) // HL
 	for i := 0; i < d.cfg.WorkersCount; i++ {
 		go func(i int) {
 			defer wg.Done() // HL
@@ -66,7 +67,7 @@ func (d *Dispatcher) Run(stopChan chan struct{}) {
 		}(i)
 	}
 
-	<-stopChan     // HL
+	<-stop         // HL
 	close(d.queue) // HL
 	wg.Wait()      // HL
 }

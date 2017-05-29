@@ -2,25 +2,20 @@ package dispatcher
 
 import (
 	"log"
-	"sync"
 	"time"
 
 	"github.com/Barberrrry/go-on-presentation/examples/dispatcher/processor"
 )
 
+// START1 OMIT
 type (
 	Processor interface {
 		Process(processor.Batch)
 	}
-	Payload map[string]string
-)
-
-// START1 OMIT
-type (
+	Payload    map[string]string
 	Dispatcher struct {
 		cfg       Config
 		processor Processor
-		flushLock sync.Mutex
 		batch     processor.Batch
 	}
 	Config struct {
@@ -29,21 +24,15 @@ type (
 )
 
 func New(cfg Config, processor Processor) *Dispatcher {
-	return &Dispatcher{
-		cfg:       cfg,
-		processor: processor,
-	}
+	return &Dispatcher{cfg: cfg, processor: processor}
 }
 
 // STOP1 OMIT
 
 // START2 OMIT
-func (d *Dispatcher) Add(payload Payload) error {
-	d.flushLock.Lock()         // HL
-	defer d.flushLock.Unlock() // HL
-
+func (d *Dispatcher) Collect(payload Payload) error {
 	d.batch = append(d.batch, processor.Item(payload))
-	log.Printf("added: %v", payload)
+	log.Printf("collected: %v", payload)
 
 	if len(d.batch) >= d.cfg.MaxBatchSize { // HL
 		t := time.Now()

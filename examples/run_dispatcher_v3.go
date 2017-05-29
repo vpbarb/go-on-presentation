@@ -25,8 +25,8 @@ func main() {
 	d := dispatcher.New(cfg, &processor.Fake{})
 	d.Run()
 	for i := 1; i <= 10; i++ {
-		time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond) // Fake delay HL
-		d.Add(dispatcher.Payload{"value": fmt.Sprintf("%d", i)})
+		time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond) // Fake delay // HL
+		d.Collect(dispatcher.Payload{"value": fmt.Sprintf("%d", i)})
 	}
 	time.Sleep(500 * time.Millisecond) // HL
 }

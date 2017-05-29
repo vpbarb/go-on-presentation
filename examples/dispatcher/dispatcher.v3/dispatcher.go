@@ -38,9 +38,9 @@ func New(cfg Config, processor Processor) *Dispatcher {
 	}
 }
 
-func (d *Dispatcher) Add(payload Payload) error {
+func (d *Dispatcher) Collect(payload Payload) error {
 	d.queue <- payload
-	log.Printf("added: %v", payload)
+	log.Printf("collected: %v", payload)
 	return nil
 }
 
@@ -60,14 +60,14 @@ func (d *Dispatcher) Run() {
 func (d *Dispatcher) worker(i int) {
 	var batch processor.Batch
 
-	log.Printf("wrk_%d start", i)
-
+	log.Printf("wrk_%d start", i) // OMIT
+	// OMIT
 	timer := time.NewTimer(d.cfg.FlushInterval) // HL
 
 	flush := func(reason string) {
-		t := time.Now()
+		t := time.Now() // OMIT
 		d.processor.Process(batch)
-		log.Printf("wrk_%d flushed by '%s' %d payloads in %s", i, reason, len(batch), time.Since(t))
+		log.Printf("wrk_%d flushed by '%s' %d payloads in %s", i, reason, len(batch), time.Since(t)) // OMIT
 		batch = nil
 		timer.Reset(d.cfg.FlushInterval) // HL
 	}

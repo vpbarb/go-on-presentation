@@ -5,55 +5,55 @@ Vadim Petrov
 Software engineer, Juno
 vadim.petrov@gmail.com
 
-* Hello, world?
+* Real task
 
-- Doesn't show all language features
-- Too easy for implementation
-- Boring demonstration
+Microservice must receive events from mobile clients by HTTP, accumulate them in a batch of events and pass it to 3rd-party service.
+
+TBD schema
 
 * To do
 
-- Receive data by HTTP
-- Accumulate data into internal buffer
-- Transfer data in a batches of N to some processor
-- All received data must be processed (provide graceful shutdown)
+- HTTP server
+- Event is JSON in HTTP-request body
+- Dispatcher with internal buffer
+- Batch processor
+- All received events must be processed gracefully on shutdown
 
 * Out of the scope
 
 - Kind of processing. It may be any implementation: send to external service, write into file, whatever...
-- Processor should takes care about errors and possible retry logic.
+- Processor should take care about errors and possible retry logic.
 
-* Let's go to work
+* Let's write the code
 
-All demonstrated code is real and runnable.
+All further code is real and runnable.
 
-You can find it here:
+You can find it on GitHub.
+
 .link https://github.com/Barberrrry/go-on-presentation
+
+.image images/work.jpg
 
 * Processor
 
 Create fake processor with random processing time up to 200 ms.
 
-.code examples/dispatcher/processor/processor.go
-
-* Dispatcher
-
-Create `dispatcher` package with common types.
-
-.code examples/dispatcher/dispatcher.v0/dispatcher.go
+.code examples/dispatcher/processor/processor.go /START/,/STOP/
 
 * Dispatcher v1: naive plan
 
-- Configurable size of batch to be processing
-- Use a slice as a buffer
+- Use a slice for the buffer
 - Append incoming data to the slice
-- If length of the slice reaches limit, flush the slice data to processor
+- Configurable batch size N to be processing
+- If buffer size reaches N, flush the buffer to processor
 
-* Dispatcher v1: configuration
+.image images/gopherswim.jpg 300 300
+
+* Dispatcher v1: types and configuration
 
 .code examples/dispatcher/dispatcher.v1/dispatcher.go /START1/,/STOP1/
 
-* Dispatcher v1: implementation
+* Dispatcher v1: collect
 
 .code examples/dispatcher/dispatcher.v1/dispatcher.go /START2/,/STOP2/
 
@@ -63,64 +63,123 @@ Create `dispatcher` package with common types.
 
 * Dispatcher v1: conclusion
 
-Resolution: BAD
+Problems:
 
-- Function `Add()` waits for processor each N calls
-- Processor is called in one stream
+- Function `Collect()` waits for processor each N calls
+- Dispatcher can work only in a single thread
 - Loose the data on process shutdown
+
+Resolution: really bad :(
 
 To be fixed:
 
-- Function `Add()` shouldn't be blocking
-- Make dispatcher scalable: call processor in many streams
-- Use *concurrency* Fan-out pattern
+- Processing must not block collecting
+- Make dispatcher *concurrent*
 
-* What is concurrency? TBD
+* What is concurrency?
 
-Concurrency is the composition of independently executing computations.
+- Concurrency is the composition of independently executing computations.
 
-Concurrency is a way to structure software, particularly as a way to write clean code that interacts well with the real world.
+- Concurrency is a way to design software.
 
-Concurrency is not parallelism, although it enables parallelism.
+- Concurrency is not parallelism, although it enables parallelism.
 
-* Goroutines TBD
+- Concurrency is about structure, parallelism is about execution.
 
-What is a goroutine? It's an independently executing function, launched by a go statement.
+- Go has rich support for concurrency using *goroutines* and *channels*.
 
-It has its own call stack.
+* Non-concurrent VS concurrent design
+
+.image images/single.jpg 200 600
+
+.image images/concurrency.jpg 200 600
+
+* Goroutines
+
+Goroutine is an independently executing function, launched by a go statement.
+
+    go func() {
+        fmt.Println("Hi!")
+    }()
 
 It's very cheap. It's practical to have thousands, even hundreds of thousands of goroutines.
 
-Number of parallel working goroutines depends on Go configuration. By default, this number is equal to processors amount.
+Gouroutine is not OS thread.
 
-TBD GOMAXPROCS
+* Scheduler
 
-* Communication TBD
+Scheduler runs N contexts, where N is defined by GOMAXPROCS environment variable. By default, this number is equal to number of processor cores.
+
+Each context is running as OS thread.
+
+Each context has own queue of goroutines, but may steal goroutines from other contexts in some cases.
+
+Context stops goroutine execution on any blocking operation (i/o operations, mutexes, waiting for channel etc.) and gets next one from the queue.
+
+* Communication
 
 Multiple goroutines require communication. Goroutine without any input or output is useless.
 
 Don't communicate by sharing memory, share memory by communicating.
 
-* Channels TBD
+* Channels
 
 A channel in Go provides a connection between two goroutines, allowing them to communicate.
 
 A channel is a first-class type.
 
-Channel may be buffered or unbuffered.
+Channel values may has any type, even other channel.
 
-Examples TBD:
+A channel may be buffered or unbuffered.
 
-- Create
-- Close
-- Read/write
-- Iterate through channel
-- Get length
+* Channel operations
+
+Create (buffered/unbuffered)
+
+    ch1 := make(chan int, 100)
+    ch2 := make(chan func())
+
+Read/write
+
+    v := <-ch1
+    ch2 <- func() {}
+
+Iterate through channel
+
+    for v := range ch1 { ... }
+
+Get length
+
+    len(ch1)
+
+Close
+
+    close(ch1)
+
+* Channel examples
+
+Unbuffered channel
+
+.play examples/channel_unbuffered.go /START/,/STOP/
+
+Buffered channel
+
+.play examples/channel_buffered.go /START/,/STOP/
+
+* Channel oops
+
+Deadlock
+
+.play examples/channel_deadlock.go /START/,/STOP/
+
+Write to closed channel
+
+.play examples/channel_closed.go /START/,/STOP/
 
 * Dispatcher v2: plan
 
-- Run configurable number of background workers to make multi-stream processing
-- Use channel to fan-out incoming data among workers
+- Run several dispatcher workers to make multi-threaded processing
+- Use channel to split incoming data among workers
 - Each worker collects own batch
 
 * Dispatcher v2: configuration
@@ -131,13 +190,13 @@ Improve configuration and use channel as queue of incoming payloads.
 
 * Dispatcher v2: new function
 
-Now we need to create `Run()` function which will init queue channel and start workers. `Add()` becomes simple.
+Now we need to create `Run()` function which will init queue channel and start workers. `Collect()` becomes simple.
 
 .code examples/dispatcher/dispatcher.v2/dispatcher.go /START2/,/STOP2/
 
 * Dispatcher v2: worker
 
-Batch collection migrates to worker. `i` param is required only for nice log messages.
+Buffer is moved to worker. `i` param is required only for nice log messages.
 
 .code examples/dispatcher/dispatcher.v2/dispatcher.go /START3/,/STOP3/
 
@@ -147,21 +206,37 @@ Batch collection migrates to worker. `i` param is required only for nice log mes
 
 * Dispatcher v2: conclusion
 
-Resolution: better, but still NOT GOOD
+Fixed:
 
-+ Function `Add()` is not blocking anymore
-+ Workers are able to call processor in several streams
--- Batch is flushed when is full only (data may get stale)
--- Still loose the data on process shutdown
+- Function `Collect()` is not blocked anymore by processor
+- Workers are able to call processor concurrently
+
+Problems:
+
+- Buffer is flushed only when reaches max batch size
+- Still loose the data on process shutdown
+
+Resolution: better, but still not good
 
 To be fixed:
 
-- Flush batch after some timeout since last data came
-- Use concurrency Timeout pattern
+- Flush buffer after some timeout since last flush
 
 * Select
 
-TBD description with examples
+The `select` statement waits on multiple communication operations.
+
+A `select` blocks until one of its cases can run, then it executes that case. It chooses one at random if multiple are ready.
+
+    values := make(chan int, 10)
+    quit := make(chan struct{})
+
+    select {
+    case v := <-values:
+        fmt.Println(v)
+    case <-quit:
+        return
+    }
 
 * Dispatcher v3: plan
 
@@ -176,24 +251,25 @@ Extend configuration with flush interval.
 
 * Dispatcher v3: flush timeout
 
-Create timeout and use it in `select` statement.
-
-TBD minimize code
-
 .code examples/dispatcher/dispatcher.v3/dispatcher.go /START2/,/STOP2/
 
 * Dispatcher v3: run
 
 .play examples/run_dispatcher_v3.go /START/,/STOP/
 
-We need to wait more than flush interval.
+Wait 500 ms to be sure all workers flushed buffer by timeout.
 
 * Dispatcher v3: conclusion
 
-Resolution: QUITE GOOD
+Fixed:
 
-+ Flush interval does not depend on payloads incoming rate
--- We didn't loose data only because of 500 ms waiting time before exit, but process may down at any time.
+- Flush interval does not depend on payloads incoming rate
+
+Problems:
+
+- We didn't loose data only because of 500 ms waiting time before exit, but process may be interrupt at any time.
+
+Resolution: good, but there are still one problem
 
 To be fixed:
 
@@ -203,9 +279,11 @@ To be fixed:
 
 Plan:
 
-- Implement stop channel to notify dispatcher about shutdown
-- Close the queue channel to stop adding payloads
-- Complete all the work before exit
+- Use stop channel to shutdown dispatcher
+- Close the queue channel to stop collecting payloads
+- Stop all workers before exit
+
+.image images/gopherhat.jpg
 
 * Dispatcher v4: wait for workers
 
@@ -215,7 +293,9 @@ Use `sync.WaitGroup` to wait for all workers are stopped.
 
 * Dispatcher v4: don't panic
 
-Check whether the dispatcher is working when payload is added. It may be done only by panic recover.
+Check whether the dispatcher is working when payload is collected.
+
+It may be done by panic recover.
 
 .code examples/dispatcher/dispatcher.v4/dispatcher.go /START2/,/STOP2/
 
@@ -229,21 +309,25 @@ All data in queue must be passed to processor, so worker must continue until que
 
 .play examples/run_dispatcher_v4.go /START/,/STOP/
 
+* Dispatcher v4: conclusion
+
+Resolution: good enough
+
+.image images/hallelujah.jpg 400 600
+
 * HTTP handler
 
-TBD
+Create HTTP handler to get JSON from request body and collect it by dispatcher.
 
 .code examples/dispatcher/server/handler.go /START1/,/STOP1/
 
 * HTTP server
 
-TBD
-
 .code examples/dispatcher/server/cmd/main.go /START1/,/STOP1/
 
-* Run dispatcher service
+* Go on prod
 
-Let's run dispatcher and see how it works finally.
+Let's run HTTP service and see how it works finally.
 
 * Dispatcher is not perfect
 

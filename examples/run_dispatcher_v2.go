@@ -23,7 +23,7 @@ func main() {
 	d := dispatcher.New(cfg, &processor.Fake{})
 	d.Run() // HL
 	for i := 1; i <= 5; i++ {
-		d.Add(dispatcher.Payload{"value": fmt.Sprintf("%d", i)})
+		d.Collect(dispatcher.Payload{"value": fmt.Sprintf("%d", i)})
 	}
 	time.Sleep(100 * time.Millisecond) // HL
 }

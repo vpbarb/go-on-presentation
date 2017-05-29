@@ -27,14 +27,14 @@ func main() {
 	go func() {
 		for i := 1; i <= 10; i++ {
 			time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond) // Fake delay
-			d.Add(dispatcher.Payload{"value": fmt.Sprintf("%d", i)})
+			d.Collect(dispatcher.Payload{"value": fmt.Sprintf("%d", i)})
 		}
 		close(stopChan) // HL
 	}()
 	d.Run(stopChan) // HL
 
-	err := d.Add(dispatcher.Payload{"value": "slowpoke"}) // HL
-	log.Printf("add error: %v", err)                      // HL
+	err := d.Collect(dispatcher.Payload{"value": "slowpoke"}) // HL
+	log.Printf("collection error: %v", err)                   // HL
 }
 
 // STOP OMIT

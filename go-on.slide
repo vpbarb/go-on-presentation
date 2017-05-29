@@ -7,14 +7,15 @@ vadim.petrov@gmail.com
 
 * Real task
 
-Microservice must receive events from mobile clients by HTTP, accumulate them in a batch of events and pass it to 3rd-party service.
+The microservice must receive events from mobile clients by HTTP, accumulate them in a batch of events and pass it to 3rd-party service.
 
 TBD schema
 
 * To do
 
 - HTTP server
-- Event is JSON in HTTP-request body
+- Event is key-value data in JSON format
+- Event comes in HTTP-request body
 - Dispatcher with internal buffer
 - Batch processor
 - All received events must be processed gracefully on shutdown
@@ -325,7 +326,7 @@ Create HTTP handler to get JSON from request body and collect it by dispatcher.
 
 .code examples/dispatcher/server/cmd/main.go /START1/,/STOP1/
 
-* Go on prod
+* Go on!
 
 Let's run HTTP service and see how it works finally.
 
@@ -340,19 +341,16 @@ There is a space to improve dispatcher.
 
 * Conclusions
 
-TBD
 Goroutines and channels make it easy to express complex operations dealing with
-multiple inputs
-multiple outputs
-timeouts
-failure
+
+- multiple inputs
+- multiple outputs
+- timeouts
+- failure
+
 And they're fun to use.
 
 * Questions?
-
-All demonstrated code may be found here:
-
-.link https://github.com/Barberrrry/go-on-presentation
 
 Concurrency in Go
 
@@ -362,4 +360,11 @@ Concurrency in Go
 "Go Concurrency Patterns" by Rob Pike
 
 .link https://www.youtube.com/watch?v=f6kdp27TYZs
-.link https://talks.golang.org/2012/concurrency.slide
+
+"Concurrency is not parallelism" by Rob Pike
+
+.link https://blog.golang.org/concurrency-is-not-parallelism
+
+Slides and code examples are here:
+
+.link https://github.com/Barberrrry/go-on-presentation

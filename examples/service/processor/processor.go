@@ -1,14 +1,12 @@
 package processor
 
-import (
-	"math/rand"
-	"time"
-)
-
-// START OMIT
+import ( // OMIT
+	"math/rand" // OMIT
+	"time"      // OMIT
+) // OMIT
+// OMIT
 type (
-	Item  map[string]string
-	Batch []Item
+	Batch [][]byte
 	Fake  struct{}
 )
 
@@ -18,5 +16,3 @@ func (f *Fake) Process(batch Batch) {
 	}
 	time.Sleep(time.Duration(rand.Intn(200)) * time.Millisecond) // Fake process time
 }
-
-// STOP OMIT

@@ -5,20 +5,15 @@ Vadim Petrov
 Software engineer, Juno
 vadim.petrov@gmail.com
 
-* Real task
+* Events aggregator
 
-The microservice must receive events from mobile clients by HTTP, accumulate them in a batch of events and pass it to 3rd-party service.
+The microservice must receive events from mobile clients by HTTP, accumulate them in a batch of events and pass it to some 3rd-party system.
 
-TBD schema
+.image images/task.png 450 600
 
-* To do
+* Microservice components
 
-- HTTP server
-- Event is key-value data in JSON format
-- Event comes in HTTP-request body
-- Dispatcher with internal buffer
-- Batch processor
-- All received events must be processed gracefully on shutdown
+.image images/schema.png
 
 * Out of the scope
 
@@ -41,39 +36,38 @@ You can find it on GitHub.
 
 Create fake processor with random processing time up to 200 ms.
 
-.code examples/dispatcher/processor/processor.go /START/,/STOP/
+.code examples/service/processor/processor.go
 
 That's enough for processor.
 
-* Dispatcher v1
+* Collector
 
-* Dispatcher v1: naive plan
+* Collector v1: naive plan
 
 - Use a slice as a buffer
-- Append incoming data to the slice
-- Configurable batch size N to be processing
+- Append incoming data to the buffer
 - If buffer size reaches N, flush the buffer to `Processor`
 
 .image images/gopherswim.jpg 300 300
 
-* Dispatcher v1: types and configuration
+* Collector v1: types and configuration
 
-.code examples/dispatcher/dispatcher.v1/dispatcher.go /START1/,/STOP1/
+.code examples/service/collector.v1/collector.go /START1/,/STOP1/
 
-* Dispatcher v1: collect
+* Collector v1: collect
 
-.code examples/dispatcher/dispatcher.v1/dispatcher.go /START2/,/STOP2/
+.code examples/service/collector.v1/collector.go /START2/,/STOP2/
 
-* Dispatcher v1: run
+* Collector v1: run
 
-.play examples/run_dispatcher_v1.go /START/,/STOP/
+.play examples/run_collector_v1.go /START/,/STOP/
 
-* Dispatcher v1: conclusion
+* Collector v1: conclusion
 
 Problems:
 
 - Function `Collect()` waits for `Processor` each N calls
-- Dispatcher can work only in a single thread
+- Collector can work only in a single thread
 - Loose the data on process shutdown
 
 Resolution: really bad :(
@@ -81,7 +75,7 @@ Resolution: really bad :(
 To be fixed:
 
 - Processing must not block collecting
-- Make dispatcher *concurrent*
+- Make Collector *concurrent*
 
 * Concurrency
 
@@ -99,9 +93,9 @@ To be fixed:
 
 * Non-concurrent VS concurrent design
 
-.image images/single.jpg 200 600
+.image images/single.jpg 230 700
 
-.image images/concurrency.jpg 200 600
+.image images/concurrency.jpg 230 700
 
 * Goroutines
 
@@ -117,7 +111,7 @@ Gouroutine is not OS thread.
 
 * Scheduler
 
-Scheduler runs N contexts, where N is defined by GOMAXPROCS environment variable. By default, this number is equal to number of processor cores.
+Scheduler runs N contexts. N is configurable.
 
 Each context is running as OS thread.
 
@@ -143,27 +137,11 @@ A channel may be buffered or unbuffered.
 
 * Channel operations
 
-Create (buffered/unbuffered)
-
-    ch1 := make(chan int, 100)
-    ch2 := make(chan func())
-
-Read/write
-
-    v := <-ch1
-    ch2 <- func() {}
-
-Iterate through channel
-
-    for v := range ch1 { ... }
-
-Get length
-
-    len(ch1)
-
-Close
-
-    close(ch1)
+- Create (buffered/unbuffered)
+- Read/write
+- Iterate through channel until it's closed
+- Get length
+- Close
 
 * Channel examples
 
@@ -175,7 +153,11 @@ Buffered channel
 
 .play examples/channel_buffered.go /START/,/STOP/
 
-* Channel oops
+Iterate through channel
+
+.play examples/channel_range.go /START/,/STOP/
+
+* Channel oops...
 
 Deadlock
 
@@ -185,37 +167,40 @@ Write to closed channel
 
 .play examples/channel_closed.go /START/,/STOP/
 
-* Dispatcher v2
+.image images/gopherlalala.png 200 200
 
-* Dispatcher v2: plan
+* Collector v2
 
-- Run several dispatcher workers to make multi-threaded processing
+* Collector v2: plan
+
+- Run several collector workers
 - Use channel to split incoming data among workers
-- Each worker collects own batch
+- Each worker has own buffer and flush it when ready
 
-* Dispatcher v2: configuration
+* Collector v2: configuration
 
 Improve configuration and use channel as queue of incoming payloads.
 
-.code examples/dispatcher/dispatcher.v2/dispatcher.go /START1/,/STOP1/
+.code examples/service/collector.v2/collector.go /START1/,/STOP1/
 
-* Dispatcher v2: run workers
+* Collector v2: run workers
 
-Now we need to create `Run()` function which will init queue channel and start workers. `Collect()` becomes simple.
+`Collect()` becomes simple.
+But we need to create `Run()` function which will init queue channel and start workers.
 
-.code examples/dispatcher/dispatcher.v2/dispatcher.go /START2/,/STOP2/
+.code examples/service/collector.v2/collector.go /START2/,/STOP2/
 
-* Dispatcher v2: worker
+* Collector v2: worker
 
 Buffer is moved to worker.
 
-.code examples/dispatcher/dispatcher.v2/dispatcher.go /START3/,/STOP3/
+.code examples/service/collector.v2/collector.go /START3/,/STOP3/
 
-* Dispatcher v2: run
+* Collector v2: run
 
-.play examples/run_dispatcher_v2.go /START/,/STOP/
+.play examples/run_collector_v2.go /START/,/STOP/
 
-* Dispatcher v2: conclusion
+* Collector v2: conclusion
 
 Fixed:
 
@@ -239,42 +224,50 @@ To be fixed:
 
 The `select` statement waits on multiple communication operations.
 
-A `select` blocks until one of its cases can run, then it executes that case. It chooses one at random if multiple are ready.
+A `select` blocks until one of its cases can run, then it executes that case.
+
+It chooses one at random if multiple are ready.
+
+If all cases are not ready, `default` happens.
 
     values := make(chan int, 10)
     quit := make(chan struct{})
 
-    select {
-    case v := <-values:
-        fmt.Println(v)
-    case <-quit:
-        return
+    for {
+        select {
+        case v := <-values:
+            fmt.Println(v)
+        case <-quit:
+            return
+        default:
+            time.Sleep(time.Second)
+        }
     }
 
-* Dispatcher v3
+* Collector v3
 
-* Dispatcher v3: plan
+* Collector v3: plan
 
-- Extend dispatcher configuration to set flush interval
+- Extend collector configuration to set flush interval
 - Force flush after timeout is expired
 
-* Dispatcher v3: configuration
+* Collector v3: configuration
 
 Extend configuration with flush interval.
 
-.code examples/dispatcher/dispatcher.v3/dispatcher.go /START1/,/STOP1/
+.code examples/service/collector.v3/collector.go /START1/,/STOP1/
 
-* Dispatcher v3: flush timeout
+* Collector v3: flush timeout
 
-.code examples/dispatcher/dispatcher.v3/dispatcher.go /START2/,/STOP2/
+.code examples/service/collector.v3/collector.go /START2/,/STOP2/
 
-* Dispatcher v3: run
+* Collector v3: run
 
-.play examples/run_dispatcher_v3.go /START/,/STOP/
+.play examples/run_collector_v3.go /START/,/STOP/
 
-Wait 500 ms to be sure all workers flushed buffer by timeout.
+Wait at least 300 ms to be sure all workers flushed buffer by timeout.
 
-* Dispatcher v3: conclusion
+* Collector v3: conclusion
 
 Fixed:
 
@@ -282,49 +275,49 @@ Fixed:
 
 Problems:
 
-- We didn't loose data only because of 500 ms waiting time before exit, but process may be interrupt at any time.
+- We didn't loose data only because of 300 ms waiting time before exit, but process may be interrupt at any time.
 
-Resolution: good, but there are still one problem
+Resolution: good, but there is still one problem
 
 To be fixed:
 
-- Graceful shutdown implementation
+- Graceful shutdown
 
-* Dispatcher v4. Final.
+* Collector v4. Final.
 
-* Dispatcher v4: plan
+* Collector v4: plan
 
-- Use stop channel to shutdown dispatcher
+- Use stop channel to shutdown collector
 - Close the queue channel to stop collecting payloads
 - Stop all workers before exit
 
 .image images/gopherhat.jpg
 
-* Dispatcher v4: wait for workers
+* Collector v4: wait for workers
 
 Use `sync.WaitGroup` to wait for all workers are stopped.
 
-.code examples/dispatcher/dispatcher.v4/dispatcher.go /START3/,/STOP3/
+.code examples/service/collector.v4/collector.go /START3/,/STOP3/
 
-* Dispatcher v4: don't panic
+* Collector v4: don't panic
 
-Check whether the dispatcher is working when payload is collected.
+Check whether the collector is working when payload is collected.
 
 It may be done by panic recover.
 
-.code examples/dispatcher/dispatcher.v4/dispatcher.go /START2/,/STOP2/
+.code examples/service/collector.v4/collector.go /START2/,/STOP2/
 
-* Dispatcher v4: finally
+* Collector v4: finally
 
 All data in queue must be passed to `Processor`, so worker must continue until queue channel is closed.
 
-.code examples/dispatcher/dispatcher.v4/dispatcher.go /START4/,/STOP4/
+.code examples/service/collector.v4/collector.go /START4/,/STOP4/
 
-* Dispatcher v4: run
+* Collector v4: run
 
-.play examples/run_dispatcher_v4.go /START/,/STOP/
+.play examples/run_collector_v4.go /START/,/STOP/
 
-* Dispatcher v4: conclusion
+* Collector v4: conclusion
 
 Resolution: good enough
 
@@ -334,26 +327,19 @@ Resolution: good enough
 
 * HTTP handler
 
-Create HTTP handler to get JSON from request body and collect it by dispatcher.
+Create HTTP handler to get JSON from request body and collect it by collector.
 
-.code examples/dispatcher/server/handler.go /START1/,/STOP1/
+.code examples/service/server/handler.go /START1/,/STOP1/
 
 * Start server
 
-.code examples/dispatcher/server/cmd/main.go /START1/,/STOP1/
+.code examples/service/server/cmd/main.go /START1/,/STOP1/
 
 * Go on!
 
-Let's run HTTP service and see how it works finally.
+Let's run our service and see how it works.
 
-* Dispatcher is not perfect
-
-There is a space to improve dispatcher.
-
-- Handle `Processor` errors
-- Retry mechanics in case of errors
-- Use `context` package instead of custom stop channel
-- etc
+.image images/gopherairplane.jpg 350 450
 
 * Conclusions
 

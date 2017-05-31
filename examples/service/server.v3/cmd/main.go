@@ -24,7 +24,7 @@ func main() {
 		FlushInterval: 5 * time.Second,
 	}
 
-	go collector.Run() // HL
+	collector.Run() // HL
 
 	http.ListenAndServe("localhost:9090", server.NewCollectorHandler(collector)) // HL
 }

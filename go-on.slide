@@ -11,7 +11,7 @@ The microservice must receive events from mobile clients by HTTP, accumulate the
 
 .image images/task.png 450 600
 
-* Microservice components
+* Microservice composition
 
 .image images/schema.png
 
@@ -20,7 +20,7 @@ The microservice must receive events from mobile clients by HTTP, accumulate the
 - Kind of processing. It may be any implementation: send to external service, write into file, whatever...
 - Processor should take care about errors and possible retry logic.
 
-* Let's write the code
+* Let's write some code
 
 All further code is real and runnable.
 
@@ -90,12 +90,6 @@ To be fixed:
 - Concurrency is about structure, parallelism is about execution.
 
 - Go has rich support for concurrency using *goroutines* and *channels*.
-
-* Non-concurrent VS concurrent design
-
-.image images/single.jpg 230 700
-
-.image images/concurrency.jpg 230 700
 
 * Goroutines
 
@@ -331,7 +325,7 @@ Create HTTP handler to get JSON from request body and collect it by collector.
 
 .code examples/service/server/handler.go /START1/,/STOP1/
 
-* Start server
+* Start service
 
 .code examples/service/server/cmd/main.go /START1/,/STOP1/
 

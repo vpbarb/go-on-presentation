@@ -16,66 +16,55 @@ type (
 // START1 OMIT
 type (
 	Collector struct {
-		cfg       Config
-		processor Processor
-		queue     chan []byte // HL
-	}
-	Config struct {
+		Processor    Processor
 		MaxBatchSize int
 		WorkersCount int // HL
 		QueueSize    int // HL
+
+		queue chan []byte // HL
 	}
 )
 
 // STOP1 OMIT
 
-func New(cfg Config, processor Processor) *Collector {
-	return &Collector{
-		cfg:       cfg,
-		processor: processor,
-	}
-}
-
 // START2 OMIT
-func (c *Collector) Collect(payload []byte) error {
+func (c *Collector) Collect(payload []byte) {
 	c.queue <- payload // HL
 	log.Printf("collected: %s", payload)
-	return nil
 }
 
-func (c *Collector) Run() {
+func (c *Collector) Run() { // HL
 	log.Print("collector start")
 
-	c.queue = make(chan []byte, c.cfg.QueueSize) // HL
+	c.queue = make(chan []byte, c.QueueSize) // HL
 
-	for i := 0; i < c.cfg.WorkersCount; i++ { // HL
-		go func(i int) { // HL
-			c.worker(i) // HL
+	for i := 0; i < c.WorkersCount; i++ {
+		go func(id int) { // HL
+			c.worker(id) // HL
 		}(i) // HL
-	} // HL
-}
+	}
+} // HL
 
 // STOP2 OMIT
 
 // START3 OMIT
-func (c *Collector) worker(i int) {
+func (c *Collector) worker(id int) {
 	var batch processor.Batch // HL
 
-	log.Printf("worker_%d start", i)
-
-	flush := func() { // HL
-		t := time.Now()
-		c.processor.Process(batch) // HL
-		log.Printf("worker_%d flushed %d payloads in %s", i, len(batch), time.Since(t))
-		batch = nil // HL
-	} // HL
+	log.Printf("worker_%d start", id)
 
 	for payload := range c.queue { // HL
 		batch = append(batch, payload)
-		if len(batch) >= c.cfg.MaxBatchSize {
-			flush() // HL
+		if len(batch) >= c.MaxBatchSize {
+			c.flush(id, batch)
+			batch = nil
 		}
 	} // HL
 }
 
 // STOP3 OMIT
+func (c *Collector) flush(workerId int, batch processor.Batch) {
+	t := time.Now()
+	c.Processor.Process(batch) // HL
+	log.Printf("worker_%d flushed %d payloads in %s", workerId, len(batch), time.Since(t))
+}

@@ -10,7 +10,7 @@ import (
 
 	"github.com/Barberrrry/go-on-presentation/examples/service/collector.v4"
 	"github.com/Barberrrry/go-on-presentation/examples/service/processor"
-	"github.com/Barberrrry/go-on-presentation/examples/service/server"
+	"github.com/Barberrrry/go-on-presentation/examples/service/server.v4"
 )
 
 func init() {
@@ -19,8 +19,13 @@ func init() {
 
 // START1 OMIT
 func main() {
-	cfg := collector.Config{WorkersCount: 3, FlushInterval: 5 * time.Second, QueueSize: 10000, MaxBatchSize: 10}
-	collector := collector.New(cfg, &processor.Fake{})
+	collector := &collector.Collector{
+		Processor:     &processor.Fake{},
+		MaxBatchSize:  5,
+		WorkersCount:  3,
+		QueueSize:     10000,
+		FlushInterval: 5 * time.Second,
+	}
 
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt, os.Kill)

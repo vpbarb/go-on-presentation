@@ -15,17 +15,20 @@ func init() {
 
 // START OMIT
 func main() {
-	cfg := collector.Config{
+	collector := &collector.Collector{
+		Processor:    &processor.Fake{},
 		MaxBatchSize: 2,
 		WorkersCount: 2,    // HL
 		QueueSize:    1000, // HL
 	}
-	collector := collector.New(cfg, &processor.Fake{})
+
 	collector.Run() // HL
+
 	for i := 1; i <= 5; i++ {
 		collector.Collect([]byte(fmt.Sprintf("event_%d", i)))
 	}
-	time.Sleep(100 * time.Millisecond) // HL
+
+	time.Sleep(200 * time.Millisecond)
 }
 
 // STOP OMIT

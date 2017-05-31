@@ -15,15 +15,14 @@ func init() {
 }
 
 func main() {
-	cfg := collector.Config{
+	// START OMIT
+	collector := &collector.Collector{
+		Processor:     &processor.Fake{},
 		MaxBatchSize:  3,
 		WorkersCount:  3,
 		QueueSize:     1000,
 		FlushInterval: 300 * time.Millisecond,
 	}
-	// START OMIT
-	// MaxBatchSize = 3, WorkersCount = 3
-	collector := collector.New(cfg, &processor.Fake{})
 
 	stopChan := make(chan struct{}) // HL
 

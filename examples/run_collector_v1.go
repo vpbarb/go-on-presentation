@@ -14,12 +14,13 @@ func init() {
 
 // START OMIT
 func main() {
-	cfg := collector.Config{
-		MaxBatchSize: 2, // HL
+	collector := &collector.Collector{
+		Processor:    &processor.Fake{},
+		MaxBatchSize: 2,
 	}
-	collector := collector.New(cfg, &processor.Fake{})
+
 	for i := 1; i <= 5; i++ {
-		collector.Collect([]byte(fmt.Sprintf("event_%d", i))) // HL
+		collector.Collect([]byte(fmt.Sprintf("event_%d", i)))
 	}
 }
 

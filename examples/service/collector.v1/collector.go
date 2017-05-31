@@ -8,39 +8,34 @@ import ( // OMIT
 	"github.com/Barberrrry/go-on-presentation/examples/service/processor" // OMIT
 ) // OMIT
 // OMIT
-type (
-	Processor interface {
-		Process(processor.Batch)
-	}
-	Collector struct {
-		cfg       Config
-		processor Processor
-		batch     processor.Batch
-	}
-	Config struct {
-		MaxBatchSize int
-	}
-)
+type Processor interface {
+	Process(processor.Batch)
+}
 
-func New(cfg Config, processor Processor) *Collector {
-	return &Collector{cfg: cfg, processor: processor}
+type Collector struct {
+	Processor    Processor
+	MaxBatchSize int
+	batch        processor.Batch
 }
 
 // STOP1 OMIT
 
 // START2 OMIT
-func (c *Collector) Collect(payload []byte) error {
-	c.batch = append(c.batch, payload)
+func (c *Collector) Collect(payload []byte) {
+	c.batch = append(c.batch, payload) // HL
+
 	log.Printf("collected: %s", payload)
 
-	if len(c.batch) >= c.cfg.MaxBatchSize { // HL
-		t := time.Now()
-		c.processor.Process(c.batch) // HL
-		log.Printf("flushed %d payloads in %s", len(c.batch), time.Since(t))
-		c.batch = nil // HL
-	}
+	if len(c.batch) >= c.MaxBatchSize { // HL
+		c.flush(c.batch) // HL
+		c.batch = nil    // HL
+	} // HL
+}
 
-	return nil
+func (c *Collector) flush(batch processor.Batch) {
+	t := time.Now()
+	c.Processor.Process(batch) // HL
+	log.Printf("flushed %d payloads in %s", len(batch), time.Since(t))
 }
 
 // STOP2 OMIT

@@ -17,24 +17,14 @@ type (
 
 type (
 	Collector struct {
-		cfg       Config
-		processor Processor
-		queue     chan []byte
-	}
-	Config struct {
+		Processor     Processor
 		MaxBatchSize  int
 		WorkersCount  int
 		QueueSize     int
 		FlushInterval time.Duration
+		queue         chan []byte
 	}
 )
-
-func New(cfg Config, processor Processor) *Collector {
-	return &Collector{
-		cfg:       cfg,
-		processor: processor,
-	}
-}
 
 // START2 OMIT
 func (c *Collector) Collect(payload []byte) (err error) {
@@ -55,11 +45,11 @@ func (c *Collector) Run(stop chan struct{}) {
 	log.Print("collector start")
 	defer log.Print("collector stop") // HL
 
-	c.queue = make(chan []byte, c.cfg.QueueSize) // HL
+	c.queue = make(chan []byte, c.QueueSize) // HL
 
-	wg := sync.WaitGroup{}     // HL
-	wg.Add(c.cfg.WorkersCount) // HL
-	for i := 0; i < c.cfg.WorkersCount; i++ {
+	wg := sync.WaitGroup{} // HL
+	wg.Add(c.WorkersCount) // HL
+	for i := 0; i < c.WorkersCount; i++ {
 		go func(i int) {
 			defer wg.Done() // HL
 			c.worker(i)
@@ -73,38 +63,40 @@ func (c *Collector) Run(stop chan struct{}) {
 
 // STOP3 OMIT
 
-func (c *Collector) worker(i int) {
+func (c *Collector) worker(id int) {
 	var batch processor.Batch
 
-	log.Printf("worker_%d start", i)
-	defer log.Printf("worker_%d stop", i)
+	log.Printf("worker_%d start", id)
+	defer log.Printf("worker_%d stop", id)
 
-	timer := time.NewTimer(c.cfg.FlushInterval)
+	timer := time.NewTimer(c.FlushInterval)
 	defer timer.Stop()
-
-	flush := func(reason string) {
-		t := time.Now()
-		c.processor.Process(batch)
-		log.Printf("worker_%d flushed by '%s' %d payloads in %s", i, reason, len(batch), time.Since(t))
-		batch = nil
-		timer.Reset(c.cfg.FlushInterval)
-	}
 
 	// START4 OMIT
 	for {
 		select {
 		case payload, opened := <-c.queue: // HL
 			if !opened { // HL
-				flush("stop") // HL
-				return        // HL
+				c.flush(id, batch, "stop") // HL
+				return                     // HL
 			} // HL
 			batch = append(batch, payload)
-			if len(batch) >= c.cfg.MaxBatchSize {
-				flush("size")
+			if len(batch) >= c.MaxBatchSize {
+				c.flush(id, batch, "size")
+				batch = nil
+				timer.Reset(c.FlushInterval)
 			}
 		case <-timer.C:
-			flush("timer")
+			c.flush(id, batch, "timer")
+			batch = nil
+			timer.Reset(c.FlushInterval)
 		}
 	}
 	// STOP4 OMIT
+}
+
+func (c *Collector) flush(workerId int, batch processor.Batch, reason string) {
+	t := time.Now()
+	c.Processor.Process(batch) // HL
+	log.Printf("worker_%d flushed %d payloads in %s", workerId, len(batch), time.Since(t))
 }

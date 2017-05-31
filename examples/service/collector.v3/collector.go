@@ -16,72 +16,62 @@ type (
 // START1 OMIT
 type (
 	Collector struct {
-		cfg       Config
-		processor Processor
-		queue     chan []byte
-	}
-	Config struct {
+		Processor     Processor
 		WorkersCount  int
 		MaxBatchSize  int
 		QueueSize     int
 		FlushInterval time.Duration // HL
+		queue         chan []byte
 	}
 )
 
 // STOP1 OMIT
 
-func New(cfg Config, processor Processor) *Collector {
-	return &Collector{
-		processor: processor,
-		cfg:       cfg,
-	}
-}
-
-func (c *Collector) Collect(payload []byte) error {
+func (c *Collector) Collect(payload []byte) {
 	c.queue <- payload
 	log.Printf("collected: %s", payload)
-	return nil
 }
 
 func (c *Collector) Run() {
 	log.Print("collector start")
 
-	c.queue = make(chan []byte, c.cfg.QueueSize)
+	c.queue = make(chan []byte, c.QueueSize)
 
-	for i := 0; i < c.cfg.WorkersCount; i++ {
-		go func(i int) {
-			c.worker(i)
+	for i := 0; i < c.WorkersCount; i++ {
+		go func(id int) {
+			c.worker(id)
 		}(i)
 	}
 }
 
 // START2 OMIT
-func (c *Collector) worker(i int) {
+func (c *Collector) worker(id int) {
 	var batch processor.Batch
 
-	log.Printf("worker_%d start", i) // OMIT
+	log.Printf("worker_%d start", id) // OMIT
 	// OMIT
-	timer := time.NewTimer(c.cfg.FlushInterval) // HL
-
-	flush := func(reason string) {
-		t := time.Now() // OMIT
-		c.processor.Process(batch)
-		log.Printf("worker_%d flushed by '%s' %d payloads in %s", i, reason, len(batch), time.Since(t)) // OMIT
-		batch = nil
-		timer.Reset(c.cfg.FlushInterval) // HL
-	}
+	timer := time.NewTimer(c.FlushInterval) // HL
 
 	for {
 		select { // HL
 		case payload := <-c.queue: // HL
 			batch = append(batch, payload)
-			if len(batch) >= c.cfg.MaxBatchSize {
-				flush("size")
+			if len(batch) >= c.MaxBatchSize {
+				c.flush(id, batch, "size")
+				batch = nil
+				timer.Reset(c.FlushInterval) // HL
 			}
 		case <-timer.C: // HL
-			flush("timer")
+			c.flush(id, batch, "timer")
+			batch = nil
+			timer.Reset(c.FlushInterval) // HL
 		} // HL
 	}
 }
 
 // STOP2 OMIT
+func (c *Collector) flush(workerId int, batch processor.Batch, reason string) {
+	t := time.Now()
+	c.Processor.Process(batch) // HL
+	log.Printf("worker_%d flushed %d payloads by '%s' in %s", workerId, len(batch), reason, time.Since(t))
+}

@@ -18,6 +18,7 @@ The microservice must receive events from mobile clients by HTTP, accumulate the
 * Out of the scope
 
 - Kind of processing. It may be any implementation: send to external service, write into file, whatever...
+
 - Processor should take care about errors and possible retry logic.
 
 * Let's write some code
@@ -50,7 +51,7 @@ That's enough for processor.
 
 .image images/gopherswim.jpg 300 300
 
-* Collector v1: types and configuration
+* Collector v1: define
 
 .code examples/service/collector.v1/collector.go /START1/,/STOP1/
 
@@ -67,15 +68,14 @@ That's enough for processor.
 Problems:
 
 - Function `Collect()` waits for `Processor` each N calls
-- Collector can work only in a single thread
-- Loose the data on process shutdown
+- `Collector` is not thread-safe
 
 Resolution: really bad :(
 
 To be fixed:
 
 - Processing must not block collecting
-- Make Collector *concurrent*
+- Make `Collector` *concurrent*
 
 * Concurrency
 
@@ -89,7 +89,7 @@ To be fixed:
 
 - Concurrency is about structure, parallelism is about execution.
 
-- Go has rich support for concurrency using *goroutines* and *channels*.
+Go has rich support for concurrency using *goroutines* and *channels*.
 
 * Goroutines
 
@@ -99,7 +99,9 @@ Goroutine is an independently executing function, launched by a go statement.
         fmt.Println("Hi!")
     }()
 
-It's very cheap. It's practical to have thousands, even hundreds of thousands of goroutines.
+It's very cheap.
+
+It's practical to have thousands, even hundreds of thousands of goroutines.
 
 Gouroutine is not OS thread.
 
@@ -109,15 +111,19 @@ Scheduler runs N contexts. N is configurable.
 
 Each context is running as OS thread.
 
-Each context has own queue of goroutines, but may steal goroutines from other contexts in some cases.
+Each context has own queue of goroutines, but may steal goroutines from other contexts if queue is empty.
 
 Context stops goroutine execution on any blocking operation (i/o operations, mutexes, waiting for channel etc.) and gets next one from the queue.
 
 * Communication
 
-Multiple goroutines require communication. Goroutine without any input or output is useless.
+Goroutines without any input or output are useless.
+
+Multiple goroutines require communication.
 
 Don't communicate by sharing memory, share memory by communicating.
+
+Instead of using locks to mediate access to shared data, use *channels* to pass data between goroutines.
 
 * Channels
 
@@ -131,49 +137,33 @@ A channel may be buffered or unbuffered.
 
 * Channel operations
 
-- Create (buffered/unbuffered)
+- Create with buffer size
 - Read/write
 - Iterate through channel until it's closed
 - Get length
 - Close
 
-* Channel examples
+* Be careful with channels...
 
-Unbuffered channel
-
-.play examples/channel_unbuffered.go /START/,/STOP/
-
-Buffered channel
-
-.play examples/channel_buffered.go /START/,/STOP/
-
-Iterate through channel
-
-.play examples/channel_range.go /START/,/STOP/
-
-* Channel oops...
-
-Deadlock
-
-.play examples/channel_deadlock.go /START/,/STOP/
-
-Write to closed channel
+Do not write to closed channel
 
 .play examples/channel_closed.go /START/,/STOP/
 
-.image images/gopherlalala.png 200 200
+.image images/gopherlalala.png 300 300
 
 * Collector v2
 
 * Collector v2: plan
 
 - Run several collector workers
-- Use channel to split incoming data among workers
+- Use *channel* to split incoming payloads among workers
 - Each worker has own buffer and flush it when ready
 
-* Collector v2: configuration
+.image images/gopherworker.jpg 300 250
 
-Improve configuration and use channel as queue of incoming payloads.
+* Collector v2: collector
+
+Add collector attributes and use channel as queue of incoming payloads.
 
 .code examples/service/collector.v2/collector.go /START1/,/STOP1/
 
@@ -186,7 +176,7 @@ But we need to create `Run()` function which will init queue channel and start w
 
 * Collector v2: worker
 
-Buffer is moved to worker.
+Buffer is a part of worker now.
 
 .code examples/service/collector.v2/collector.go /START3/,/STOP3/
 
@@ -199,12 +189,11 @@ Buffer is moved to worker.
 Fixed:
 
 - Function `Collect()` is not blocked anymore by `Processor`
-- Workers are able to call `Processor` concurrently
+- Workers are *concurrent*
 
 Problems:
 
 - Buffer is flushed only when reaches max batch size
-- Still loose the data on process shutdown
 
 Resolution: better, but still not good
 
@@ -238,16 +227,18 @@ If all cases are not ready, `default` happens.
         }
     }
 
-* Collector v3
+* Collector v3. Final.
 
 * Collector v3: plan
 
-- Extend collector configuration to set flush interval
-- Force flush after timeout is expired
+- Add flush interval as collector parameter
+- Force flush periodically
 
-* Collector v3: configuration
+.image images/gopherhat.jpg
 
-Extend configuration with flush interval.
+* Collector v3: collector
+
+Add flush interval as collector parameter.
 
 .code examples/service/collector.v3/collector.go /START1/,/STOP1/
 
@@ -259,59 +250,7 @@ Extend configuration with flush interval.
 
 .play examples/run_collector_v3.go /START/,/STOP/
 
-Wait at least 300 ms to be sure all workers flushed buffer by timeout.
-
 * Collector v3: conclusion
-
-Fixed:
-
-- Flush interval does not depend on payloads incoming rate
-
-Problems:
-
-- We didn't loose data only because of 300 ms waiting time before exit, but process may be interrupt at any time.
-
-Resolution: good, but there is still one problem
-
-To be fixed:
-
-- Graceful shutdown
-
-* Collector v4. Final.
-
-* Collector v4: plan
-
-- Use stop channel to shutdown collector
-- Close the queue channel to stop collecting payloads
-- Stop all workers before exit
-
-.image images/gopherhat.jpg
-
-* Collector v4: wait for workers
-
-Use `sync.WaitGroup` to wait for all workers are stopped.
-
-.code examples/service/collector.v4/collector.go /START3/,/STOP3/
-
-* Collector v4: don't panic
-
-Check whether the collector is working when payload is collected.
-
-It may be done by panic recover.
-
-.code examples/service/collector.v4/collector.go /START2/,/STOP2/
-
-* Collector v4: finally
-
-All data in queue must be passed to `Processor`, so worker must continue until queue channel is closed.
-
-.code examples/service/collector.v4/collector.go /START4/,/STOP4/
-
-* Collector v4: run
-
-.play examples/run_collector_v4.go /START/,/STOP/
-
-* Collector v4: conclusion
 
 Resolution: good enough
 
@@ -323,30 +262,35 @@ Resolution: good enough
 
 Create HTTP handler to get JSON from request body and collect it by collector.
 
-.code examples/service/server/handler.go /START1/,/STOP1/
+.code examples/service/server.v3/handler.go /START1/,/STOP1/
 
-* Start service
+* Start server
 
-.code examples/service/server/cmd/main.go /START1/,/STOP1/
+.code examples/service/server.v3/cmd/main.go /START1/,/STOP1/
 
 * Go on!
 
-Let's run our service and see how it works.
+Let's run microservice and see how it works.
 
 .image images/gopherairplane.jpg 350 450
 
 * Conclusions
 
-Goroutines and channels make it easy to express complex operations dealing with
+*Goroutines* and *channels* make it easy to express complex operations dealing with
 
 - multiple inputs
 - multiple outputs
 - timeouts
-- failure
 
 And they're fun to use.
 
+By the way, there is advanced *Collector* *v4* with graceful shutdown.
+
 * Questions?
+
+This presentation slides and code (including Collector v4) are here:
+
+.link https://github.com/Barberrrry/go-on-presentation
 
 Concurrency in Go
 
@@ -360,7 +304,3 @@ Concurrency in Go
 "Concurrency is not parallelism" by Rob Pike
 
 .link https://blog.golang.org/concurrency-is-not-parallelism
-
-Slides and code examples are here:
-
-.link https://github.com/Barberrrry/go-on-presentation

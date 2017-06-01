@@ -6,7 +6,7 @@ import ( // OMIT
 ) // OMIT
 // OMIT
 type (
-	Batch [][]byte
+	Batch []string
 	Fake  struct{}
 )
 
@@ -14,5 +14,6 @@ func (f *Fake) Process(batch Batch) {
 	if len(batch) == 0 {
 		return
 	}
-	time.Sleep(time.Duration(rand.Intn(200)) * time.Millisecond) // Fake process time
+	// Fake process time
+	time.Sleep(time.Duration(rand.Intn(200)) * time.Millisecond) // HL
 }

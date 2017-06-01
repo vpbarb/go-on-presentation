@@ -25,7 +25,7 @@ func main() {
 	collector.Run() // HL
 
 	for i := 1; i <= 5; i++ {
-		collector.Collect([]byte(fmt.Sprintf("event_%d", i)))
+		collector.Collect(fmt.Sprintf("event_%d", i))
 	}
 
 	time.Sleep(200 * time.Millisecond)

@@ -18,25 +18,26 @@ type (
 	Collector struct {
 		Processor    Processor
 		MaxBatchSize int
+
 		WorkersCount int // HL
 		QueueSize    int // HL
 
-		queue chan []byte // HL
+		payloadsQueue chan string // HL
 	}
 )
 
 // STOP1 OMIT
 
 // START2 OMIT
-func (c *Collector) Collect(payload []byte) {
-	c.queue <- payload // HL
+func (c *Collector) Collect(payload string) {
+	c.payloadsQueue <- payload // HL
 	log.Printf("collected: %s", payload)
 }
 
 func (c *Collector) Run() { // HL
 	log.Print("collector start")
 
-	c.queue = make(chan []byte, c.QueueSize) // HL
+	c.payloadsQueue = make(chan string, c.QueueSize) // HL
 
 	for i := 0; i < c.WorkersCount; i++ {
 		go func(id int) { // HL
@@ -53,7 +54,7 @@ func (c *Collector) worker(id int) {
 
 	log.Printf("worker_%d start", id)
 
-	for payload := range c.queue { // HL
+	for payload := range c.payloadsQueue { // HL
 		batch = append(batch, payload)
 		if len(batch) >= c.MaxBatchSize {
 			c.flush(id, batch)

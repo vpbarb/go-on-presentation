@@ -16,7 +16,7 @@ func NewCollectorHandler(d *collector.Collector) http.HandlerFunc {
 			return
 		}
 
-		if err := d.Collect(payload); err != nil { // HL
+		if err := d.Collect(string(payload)); err != nil { // HL
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}

@@ -21,7 +21,7 @@ type Collector struct {
 // STOP1 OMIT
 
 // START2 OMIT
-func (c *Collector) Collect(payload []byte) {
+func (c *Collector) Collect(payload string) {
 	c.batch = append(c.batch, payload) // HL
 
 	log.Printf("collected: %s", payload)

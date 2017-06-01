@@ -5,21 +5,15 @@ Vadim Petrov
 Software engineer, Juno
 vadim.petrov@gmail.com
 
-* Events aggregator
+* Events collector
 
-The microservice must receive events from mobile clients by HTTP, accumulate them in a batch of events and pass it to some 3rd-party system.
+The microservice receives events from mobile clients by HTTP, collects them in a batch of events and pass it to some 3rd-party system.
 
 .image images/task.png 450 600
 
 * Microservice composition
 
 .image images/schema.png
-
-* Out of the scope
-
-- Kind of processing. It may be any implementation: send to external service, write into file, whatever...
-
-- Processor should take care about errors and possible retry logic.
 
 * Let's write some code
 
@@ -51,7 +45,7 @@ That's enough for processor.
 
 .image images/gopherswim.jpg 300 300
 
-* Collector v1: define
+* Collector v1: types
 
 .code examples/service/collector.v1/collector.go /START1/,/STOP1/
 
@@ -65,17 +59,17 @@ That's enough for processor.
 
 * Collector v1: conclusion
 
-Problems:
+Resolution: really bad :(
+
+Problem:
 
 - Function `Collect()` waits for `Processor` each N calls
-- `Collector` is not thread-safe
-
-Resolution: really bad :(
 
 To be fixed:
 
-- Processing must not block collecting
-- Make `Collector` *concurrent*
+- `Processor` shouldn't block `Collect()`
+
+Let's make `Collector` *concurrent*.
 
 * Concurrency
 
@@ -111,9 +105,11 @@ Scheduler runs N contexts. N is configurable.
 
 Each context is running as OS thread.
 
-Each context has own queue of goroutines, but may steal goroutines from other contexts if queue is empty.
+Each context has own queue of goroutines.
 
-Context stops goroutine execution on any blocking operation (i/o operations, mutexes, waiting for channel etc.) and gets next one from the queue.
+Context stops goroutine execution on any blocking operation and starts next one from the queue.
+
+If you start the program with 1 context, it is not parallel, but still remains concurrent.
 
 * Communication
 
@@ -129,35 +125,22 @@ Instead of using locks to mediate access to shared data, use *channels* to pass 
 
 A channel in Go provides a connection between two goroutines, allowing them to communicate.
 
-A channel is a first-class type.
-
 Channel values may has any type, even other channel.
 
-A channel may be buffered or unbuffered.
+A channel can have buffer.
 
-* Channel operations
+* Channel buffer
 
-- Create with buffer size
-- Read/write
-- Iterate through channel until it's closed
-- Get length
-- Close
-
-* Be careful with channels...
-
-Do not write to closed channel
-
-.play examples/channel_closed.go /START/,/STOP/
-
-.image images/gopherlalala.png 300 300
+TDB image of buffered and unbuffered channels
 
 * Collector v2
 
 * Collector v2: plan
 
-- Run several collector workers
+- Implement worker
 - Use *channel* to split incoming payloads among workers
-- Each worker has own buffer and flush it when ready
+- Worker has own buffer and flush it when ready
+- Run several *concurrent* workers
 
 .image images/gopherworker.jpg 300 250
 
@@ -167,24 +150,26 @@ Add collector attributes and use channel as queue of incoming payloads.
 
 .code examples/service/collector.v2/collector.go /START1/,/STOP1/
 
-* Collector v2: run workers
-
-`Collect()` becomes simple.
-But we need to create `Run()` function which will init queue channel and start workers.
-
-.code examples/service/collector.v2/collector.go /START2/,/STOP2/
-
 * Collector v2: worker
 
-Buffer is a part of worker now.
+Create `worker()` function with own buffer inside. Worker will flush buffer when it's ready.
 
 .code examples/service/collector.v2/collector.go /START3/,/STOP3/
+
+* Collector v2: run workers
+
+`Collect()` just writes payload to queue.
+Create `Run()` function which will init queue channel and start N workers.
+
+.code examples/service/collector.v2/collector.go /START2/,/STOP2/
 
 * Collector v2: run
 
 .play examples/run_collector_v2.go /START/,/STOP/
 
 * Collector v2: conclusion
+
+Resolution: better, but still not good
 
 Fixed:
 
@@ -194,8 +179,6 @@ Fixed:
 Problems:
 
 - Buffer is flushed only when reaches max batch size
-
-Resolution: better, but still not good
 
 To be fixed:
 
@@ -231,18 +214,18 @@ If all cases are not ready, `default` happens.
 
 * Collector v3: plan
 
-- Add flush interval as collector parameter
+- Add flush interval as `Collector` parameter
 - Force flush periodically
 
 .image images/gopherhat.jpg
 
 * Collector v3: collector
 
-Add flush interval as collector parameter.
+Add flush interval as `Collector` parameter.
 
 .code examples/service/collector.v3/collector.go /START1/,/STOP1/
 
-* Collector v3: flush timeout
+* Collector v3: flush timer
 
 .code examples/service/collector.v3/collector.go /START2/,/STOP2/
 
@@ -260,7 +243,7 @@ Resolution: good enough
 
 * HTTP handler
 
-Create HTTP handler to get JSON from request body and collect it by collector.
+Read HTTP request body and collect it by collector.
 
 .code examples/service/server.v3/handler.go /START1/,/STOP1/
 
@@ -276,6 +259,8 @@ Let's run microservice and see how it works.
 
 * Conclusions
 
+TBD refactor
+
 *Goroutines* and *channels* make it easy to express complex operations dealing with
 
 - multiple inputs
@@ -283,8 +268,6 @@ Let's run microservice and see how it works.
 - timeouts
 
 And they're fun to use.
-
-By the way, there is advanced *Collector* *v4* with graceful shutdown.
 
 * Questions?
 

@@ -10,6 +10,7 @@ import (
 // START1 OMIT
 func NewCollectorHandler(d *collector.Collector) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
+
 		payload, err := ioutil.ReadAll(req.Body) // HL
 
 		if err != nil {
@@ -17,7 +18,7 @@ func NewCollectorHandler(d *collector.Collector) http.HandlerFunc {
 			return
 		}
 
-		d.Collect(payload) // HL
+		d.Collect(string(payload)) // HL
 	}
 }
 

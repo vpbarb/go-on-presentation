@@ -15,7 +15,6 @@ func init() {
 }
 
 func main() {
-	// START OMIT
 	collector := &collector.Collector{
 		Processor:     &processor.Fake{},
 		MaxBatchSize:  3,
@@ -24,19 +23,18 @@ func main() {
 		FlushInterval: 300 * time.Millisecond,
 	}
 
-	stopChan := make(chan struct{}) // HL
+	stopChan := make(chan struct{})
 
 	go func() {
 		for i := 1; i <= 10; i++ {
-			time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond) // Fake delay
-			collector.Collect([]byte(fmt.Sprintf("event_%d", i)))
+			time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
+			collector.Collect(fmt.Sprintf("event_%d", i))
 		}
-		close(stopChan) // HL
+		close(stopChan)
 	}()
 
-	collector.Run(stopChan) // HL
+	collector.Run(stopChan)
 
-	err := collector.Collect([]byte("slowpoke")) // HL
-	log.Printf("collection error: %v", err)      // HL
-	// STOP OMIT
+	err := collector.Collect("slowpoke")
+	log.Printf("collection error: %v", err)
 }

@@ -20,7 +20,7 @@ func main() {
 	}
 
 	for i := 1; i <= 5; i++ {
-		collector.Collect([]byte(fmt.Sprintf("event_%d", i)))
+		collector.Collect(fmt.Sprintf("event_%d", i))
 	}
 }
 

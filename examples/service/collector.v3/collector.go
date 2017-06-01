@@ -16,26 +16,28 @@ type (
 // START1 OMIT
 type (
 	Collector struct {
-		Processor     Processor
-		WorkersCount  int
-		MaxBatchSize  int
-		QueueSize     int
+		Processor    Processor
+		WorkersCount int
+		MaxBatchSize int
+		QueueSize    int
+
 		FlushInterval time.Duration // HL
-		queue         chan []byte
+
+		payloadsQueue chan string
 	}
 )
 
 // STOP1 OMIT
 
-func (c *Collector) Collect(payload []byte) {
-	c.queue <- payload
+func (c *Collector) Collect(payload string) {
+	c.payloadsQueue <- payload
 	log.Printf("collected: %s", payload)
 }
 
 func (c *Collector) Run() {
 	log.Print("collector start")
 
-	c.queue = make(chan []byte, c.QueueSize)
+	c.payloadsQueue = make(chan string, c.QueueSize)
 
 	for i := 0; i < c.WorkersCount; i++ {
 		go func(id int) {
@@ -54,7 +56,7 @@ func (c *Collector) worker(id int) {
 
 	for {
 		select { // HL
-		case payload := <-c.queue: // HL
+		case payload := <-c.payloadsQueue: // HL
 			batch = append(batch, payload)
 			if len(batch) >= c.MaxBatchSize {
 				c.flush(id, batch, "size")

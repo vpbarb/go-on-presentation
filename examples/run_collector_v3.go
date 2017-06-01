@@ -28,7 +28,7 @@ func main() {
 
 	for i := 1; i <= 5; i++ {
 		time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond) // Fake delay // HL
-		collector.Collect([]byte(fmt.Sprintf("event_%d", i)))
+		collector.Collect(fmt.Sprintf("event_%d", i))
 	}
 
 	time.Sleep(300 * time.Millisecond)

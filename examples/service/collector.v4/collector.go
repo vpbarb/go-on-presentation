@@ -22,46 +22,40 @@ type (
 		WorkersCount  int
 		QueueSize     int
 		FlushInterval time.Duration
-		queue         chan []byte
+		payloadsQueue chan string
 	}
 )
 
-// START2 OMIT
-func (c *Collector) Collect(payload []byte) (err error) {
-	defer func() { // HL
-		if r := recover(); r != nil { // HL
-			err = errors.New("collector is not running") // HL
-		} // HL
-	}() // HL
-	c.queue <- payload
+func (c *Collector) Collect(payload string) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.New("collector is not running")
+		}
+	}()
+	c.payloadsQueue <- payload
 	log.Printf("collected: %s", payload)
 	return nil
 }
 
-// STOP2 OMIT
-
-// START3 OMIT
 func (c *Collector) Run(stop chan struct{}) {
 	log.Print("collector start")
-	defer log.Print("collector stop") // HL
+	defer log.Print("collector stop")
 
-	c.queue = make(chan []byte, c.QueueSize) // HL
+	c.payloadsQueue = make(chan string, c.QueueSize)
 
-	wg := sync.WaitGroup{} // HL
-	wg.Add(c.WorkersCount) // HL
+	wg := sync.WaitGroup{}
+	wg.Add(c.WorkersCount)
 	for i := 0; i < c.WorkersCount; i++ {
 		go func(i int) {
-			defer wg.Done() // HL
+			defer wg.Done()
 			c.worker(i)
 		}(i)
 	}
 
-	<-stop         // HL
-	close(c.queue) // HL
-	wg.Wait()      // HL
+	<-stop
+	close(c.payloadsQueue)
+	wg.Wait()
 }
-
-// STOP3 OMIT
 
 func (c *Collector) worker(id int) {
 	var batch processor.Batch
@@ -72,14 +66,13 @@ func (c *Collector) worker(id int) {
 	timer := time.NewTimer(c.FlushInterval)
 	defer timer.Stop()
 
-	// START4 OMIT
 	for {
 		select {
-		case payload, opened := <-c.queue: // HL
-			if !opened { // HL
-				c.flush(id, batch, "stop") // HL
-				return                     // HL
-			} // HL
+		case payload, opened := <-c.payloadsQueue:
+			if !opened {
+				c.flush(id, batch, "stop")
+				return
+			}
 			batch = append(batch, payload)
 			if len(batch) >= c.MaxBatchSize {
 				c.flush(id, batch, "size")
@@ -92,11 +85,10 @@ func (c *Collector) worker(id int) {
 			timer.Reset(c.FlushInterval)
 		}
 	}
-	// STOP4 OMIT
 }
 
 func (c *Collector) flush(workerId int, batch processor.Batch, reason string) {
 	t := time.Now()
-	c.Processor.Process(batch) // HL
-	log.Printf("worker_%d flushed %d payloads in %s", workerId, len(batch), time.Since(t))
+	c.Processor.Process(batch)
+	log.Printf("worker_%d flushed %d payloads by '%s' in %s", workerId, len(batch), reason, time.Since(t))
 }

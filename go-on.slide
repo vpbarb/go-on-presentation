@@ -101,7 +101,7 @@ Gouroutine is not OS thread.
 
 * Scheduler
 
-Scheduler runs N contexts. N is configurable.
+Scheduler runs N contexts. N is configurable. It may be 1 context.
 
 Each context is running as OS thread.
 
@@ -109,7 +109,7 @@ Each context has own queue of goroutines.
 
 Context stops goroutine execution on any blocking operation and starts next one from the queue.
 
-If you start the program with 1 context, it is not parallel, but still remains concurrent.
+.image images/scheduler.png 300 600
 
 * Communication
 
@@ -125,13 +125,25 @@ Instead of using locks to mediate access to shared data, use *channels* to pass 
 
 A channel in Go provides a connection between two goroutines, allowing them to communicate.
 
-Channel values may has any type, even other channel.
+Channel values may have any type, even other channel.
 
 A channel can have buffer.
 
+.image images/gophers_communication.jpg
+
 * Channel buffer
 
-TDB image of buffered and unbuffered channels
+Unbuffered channel
+
+    c := make(chan string)
+
+.image images/channel_unbuffered.png
+
+Buffered channel
+
+    c := make(chan string, 5)
+
+.image images/channel_buffered.png
 
 * Collector v2
 
@@ -271,7 +283,7 @@ And they're fun to use.
 
 * Questions?
 
-This presentation slides and code (including Collector v4) are here:
+This presentation slides and code are here:
 
 .link https://github.com/Barberrrry/go-on-presentation
 

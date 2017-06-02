@@ -59,7 +59,7 @@ That's enough for processor.
 
 * Collector v1: conclusion
 
-Resolution: really bad :(
+Resolution: bad :(
 
 Problem:
 
@@ -133,17 +133,17 @@ A channel can have buffer.
 
 * Channel buffer
 
-Unbuffered channel
-
-    c := make(chan string)
-
-.image images/channel_unbuffered.png
-
 Buffered channel
 
     c := make(chan string, 5)
 
 .image images/channel_buffered.png
+
+Unbuffered channel
+
+    c := make(chan string)
+
+.image images/channel_unbuffered.png
 
 * Collector v2
 

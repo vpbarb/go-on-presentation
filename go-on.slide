@@ -271,19 +271,17 @@ Let's run microservice and see how it works.
 
 * Conclusions
 
-TBD refactor
+Go provides instruments to make complex things easy.
 
-*Goroutines* and *channels* make it easy to express complex operations dealing with
+Concurrent code enables runtime parallelism.
 
-- multiple inputs
-- multiple outputs
-- timeouts
+*Goroutines* and *channels* are easy to use.
 
-And they're fun to use.
+But don't overuse these ideas. Always use the right tool for the job.
 
 * Questions?
 
-This presentation slides and code are here:
+This presentation slides and code:
 
 .link https://github.com/Barberrrry/go-on-presentation
 

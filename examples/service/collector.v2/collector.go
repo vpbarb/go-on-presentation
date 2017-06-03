@@ -50,15 +50,15 @@ func (c *Collector) Run() { // HL
 
 // START3 OMIT
 func (c *Collector) worker(id int) {
-	var batch processor.Batch // HL
+	var buffer processor.Batch // HL
 
 	log.Printf("worker_%d start", id)
 
 	for payload := range c.payloadsQueue { // HL
-		batch = append(batch, payload)
-		if len(batch) >= c.MaxBatchSize {
-			c.flush(id, batch)
-			batch = nil
+		buffer = append(buffer, payload)
+		if len(buffer) >= c.MaxBatchSize {
+			c.flush(id, buffer)
+			buffer = nil
 		}
 	} // HL
 }

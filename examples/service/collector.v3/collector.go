@@ -48,7 +48,7 @@ func (c *Collector) Run() {
 
 // START2 OMIT
 func (c *Collector) worker(id int) {
-	var batch processor.Batch
+	var buffer processor.Batch
 
 	log.Printf("worker_%d start", id) // OMIT
 	// OMIT
@@ -57,15 +57,15 @@ func (c *Collector) worker(id int) {
 	for {
 		select { // HL
 		case payload := <-c.payloadsQueue: // HL
-			batch = append(batch, payload)
-			if len(batch) >= c.MaxBatchSize {
-				c.flush(id, batch, "size")
-				batch = nil
+			buffer = append(buffer, payload)
+			if len(buffer) >= c.MaxBatchSize {
+				c.flush(id, buffer, "size")
+				buffer = nil
 				timer.Reset(c.FlushInterval) // HL
 			}
 		case <-timer.C: // HL
-			c.flush(id, batch, "timer")
-			batch = nil
+			c.flush(id, buffer, "timer")
+			buffer = nil
 			timer.Reset(c.FlushInterval) // HL
 		} // HL
 	}

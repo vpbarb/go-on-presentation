@@ -58,7 +58,7 @@ func (c *Collector) Run(stop chan struct{}) {
 }
 
 func (c *Collector) worker(id int) {
-	var batch processor.Batch
+	var buffer processor.Batch
 
 	log.Printf("worker_%d start", id)
 	defer log.Printf("worker_%d stop", id)
@@ -70,18 +70,18 @@ func (c *Collector) worker(id int) {
 		select {
 		case payload, opened := <-c.payloadsQueue:
 			if !opened {
-				c.flush(id, batch, "stop")
+				c.flush(id, buffer, "stop")
 				return
 			}
-			batch = append(batch, payload)
-			if len(batch) >= c.MaxBatchSize {
-				c.flush(id, batch, "size")
-				batch = nil
+			buffer = append(buffer, payload)
+			if len(buffer) >= c.MaxBatchSize {
+				c.flush(id, buffer, "size")
+				buffer = nil
 				timer.Reset(c.FlushInterval)
 			}
 		case <-timer.C:
-			c.flush(id, batch, "timer")
-			batch = nil
+			c.flush(id, buffer, "timer")
+			buffer = nil
 			timer.Reset(c.FlushInterval)
 		}
 	}

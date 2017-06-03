@@ -15,20 +15,20 @@ type Processor interface {
 type Collector struct {
 	Processor    Processor
 	MaxBatchSize int
-	batch        processor.Batch
+	buffer       processor.Batch
 }
 
 // STOP1 OMIT
 
 // START2 OMIT
 func (c *Collector) Collect(payload string) {
-	c.batch = append(c.batch, payload) // HL
+	c.buffer = append(c.buffer, payload) // HL
 
 	log.Printf("collected: %s", payload)
 
-	if len(c.batch) >= c.MaxBatchSize { // HL
-		c.flush(c.batch) // HL
-		c.batch = nil    // HL
+	if len(c.buffer) >= c.MaxBatchSize { // HL
+		c.flush(c.buffer) // HL
+		c.buffer = nil    // HL
 	} // HL
 }
 

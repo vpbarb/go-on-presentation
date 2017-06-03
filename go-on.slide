@@ -128,7 +128,7 @@ A channel in Go provides a connection between two goroutines, allowing them to c
 
 Channel values may have any type, even other channel.
 
-A channel can have buffer.
+A channel is a blocking queue with defined length.
 
 .image images/gophers_communication.jpg
 
